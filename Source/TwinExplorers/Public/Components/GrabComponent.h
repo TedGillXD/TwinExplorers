@@ -25,7 +25,7 @@ protected:
 	UPROPERTY(Replicated)
 	AMainCharacterBase* Owner;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing=OnRep_GrabItemMeshComp)
 	UStaticMeshComponent* GrabItemMeshComp;
 
 	UPROPERTY(Replicated)
@@ -75,4 +75,7 @@ public:
 protected:
 	UFUNCTION()
 	void OnRep_HeldComponent();
+
+	UFUNCTION()
+	void OnRep_GrabItemMeshComp() const;
 };

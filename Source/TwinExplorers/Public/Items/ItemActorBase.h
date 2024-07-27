@@ -37,8 +37,8 @@ protected:
 public:
 	virtual bool CanInteract_Implementation(const FItem& InHandItem) override;
 	virtual void Interact_Implementation(APawn* FromPawn, const FItem& InHandItem) override;
-	virtual FString GetInteractString_Implementation(const FItem& InHandItem) override;
-	virtual UTexture2D* GetInteractIcon_Implementation(const FItem& InHandItem) override;
+	virtual FString GetInteractString_Implementation() override;
+	virtual UTexture2D* GetInteractIcon_Implementation() override;
 	virtual bool ShouldUpdate_Implementation() override;
 	virtual void Updated_Implementation() override;
 	virtual void Focused_Implementation() override;

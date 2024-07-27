@@ -21,8 +21,6 @@ UGrabComponent::UGrabComponent()
 	bIsOn = false;
 	bIsInitialized = false;
 	DetectLength = 1000.f;
-
-	
 }
 
 
@@ -75,7 +73,7 @@ void UGrabComponent::GrabItem() {
 	Params.AddIgnoredActor(Owner);
 	bool bIsHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_PhysicsBody, Params);
 	// 0. for debug
-	DrawDebugLineTraceSingle(GetWorld(), Start, End, EDrawDebugTrace::ForDuration, true, HitResult, FLinearColor::Red, FLinearColor::Green, 5.f);
+	// DrawDebugLineTraceSingle(GetWorld(), Start, End, EDrawDebugTrace::ForDuration, true, HitResult, FLinearColor::Red, FLinearColor::Green, 5.f);
 	
 	if(GetOwnerRole() == ROLE_Authority) {
 		GrabItemInternal(bIsHit, HitResult);
@@ -112,6 +110,10 @@ void UGrabComponent::OnRep_HeldComponent() {
 	HeldComponent->SetSimulatePhysics(false);
 }
 
+void UGrabComponent::OnRep_GrabItemMeshComp() const {
+	GrabItemMeshComp->bHiddenInGame = true;
+}
+
 void UGrabComponent::GrabItemOnServer_Implementation(const bool bIsHit, const FHitResult& HitResult) {
 	GrabItemInternal(bIsHit, HitResult);
 }
@@ -130,7 +132,7 @@ void UGrabComponent::AddRequireComponentsOnServer_Implementation() {
 			return;
 		}
 
-		// GrabItemMeshComp->bHiddenInGame = true;
+		GrabItemMeshComp->bHiddenInGame = true;
 		GrabItemMeshComp->SetCollisionResponseToAllChannels(ECR_Ignore);
 		if(VisibleMesh) {
 			GrabItemMeshComp->SetStaticMesh(VisibleMesh);

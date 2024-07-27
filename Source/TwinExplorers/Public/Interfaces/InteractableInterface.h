@@ -32,12 +32,12 @@ public:
 	virtual void Interact_Implementation(APawn* FromPawn, const FItem& InHandItem) = 0;
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	FString GetInteractString(const FItem& InHandItem);			// 返回互动的字符串
-	virtual FString GetInteractString_Implementation(const FItem& InHandItem) = 0;
+	FString GetInteractString();			// 返回互动的字符串
+	virtual FString GetInteractString_Implementation() = 0;
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	UTexture2D* GetInteractIcon(const FItem& InHandItem);			// 返回一个用什么键来互动的标签
-	virtual UTexture2D* GetInteractIcon_Implementation(const FItem& InHandItem) = 0;
+	UTexture2D* GetInteractIcon();			// 返回一个用什么键来互动的标签
+	virtual UTexture2D* GetInteractIcon_Implementation() = 0;
 
 	// 互动更新
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)

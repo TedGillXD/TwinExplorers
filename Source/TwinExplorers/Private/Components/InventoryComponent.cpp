@@ -11,7 +11,8 @@ UInventoryComponent::UInventoryComponent()
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = false;
-	
+
+	SelectedToolIndex = 0;
 }
 
 
@@ -69,6 +70,7 @@ void UInventoryComponent::AddItem(const FItem& Item) {
 	if(GetOwnerRole() == ROLE_Authority) {		// 服务器端中直接进行加入
 		if(Item.bIsTool) {
 			Tools.Add(Item);
+			if(Tools.Num() - 1 == SelectedToolIndex) { OnSelectedToolChanged.Broadcast(SelectedToolIndex, Tools[SelectedToolIndex]); }		// 第一个工具加入时，调用更新
 		} else {
 			Props.Add(Item);
 		}
@@ -110,12 +112,32 @@ bool UInventoryComponent::IsItemValid(const FItem& Item) {
 	return !Item.ItemName.IsNone();
 }
 
+void UInventoryComponent::ChangeInHandItemOnServer_Implementation(int32 NewIndex) {
+	ChangedInHandItem(NewIndex);
+}
+
+void UInventoryComponent::ChangedInHandItem(int32 NewIndex) {
+	if(NewIndex < 0 || NewIndex >= Tools.Num()) { return; }
+
+	if(GetOwnerRole() == ROLE_Authority) {
+		SelectedToolIndex = NewIndex;
+		OnSelectedToolChanged.Broadcast(SelectedToolIndex, Tools[SelectedToolIndex]);		// 服务器选择到新Tool的时候需要进行更新
+	} else {		// 属于客户端，通过RPC在服务器上更新
+		ChangeInHandItemOnServer(NewIndex);
+	}
+}
+
 void UInventoryComponent::OnRep_Tools() const {
 	OnInventoryChanged.Broadcast(Tools, Props);
 }
 
 void UInventoryComponent::OnRep_Props() const {
 	OnInventoryChanged.Broadcast(Tools, Props);
+}
+
+void UInventoryComponent::OnRep_SelectedToolIndex() const {
+	// 当客户端更新的时候调用这个函数
+	OnSelectedToolChanged.Broadcast(SelectedToolIndex, Tools[SelectedToolIndex]);
 }
 
 void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Interfaces/MainCharacterInterface.h"
+#include "Items/Item.h"
 #include "MainCharacterBase.generated.h"
 
 class UGrabComponent;
@@ -30,6 +31,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UGrabComponent* GrabComponent;			// 用来提供抓取物品的功能
 
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
+	UChildActorComponent* InHandItemActor;			// 握在手里的东西，开启复制这样就能把InHandItemActor的变化同步到客户端
+
 protected:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CameraPitch)
 	float CameraPitch;
@@ -53,6 +57,12 @@ public:
 	UGrabComponent* GetGrabComponent() const;
 
 	virtual void AddControllerPitchInput(float Val) override;
+	
+	UFUNCTION(BlueprintCallable)
+	void UseInHandItemPressed();
+
+	UFUNCTION(BlueprintCallable)
+	void UseInHandItemReleased();
 
 protected:
 	UFUNCTION()
@@ -61,4 +71,10 @@ protected:
 	// 负责将客户端角色的CameraPitch更新到服务器
 	UFUNCTION(Server, Unreliable)
 	void UpdateCameraPitchOnServer(float NewCameraPitch);
+
+	UFUNCTION(Server, Reliable)
+	void InHandItemChangedOnServer(int32 NewIndex, const FItem& Item);
+
+	UFUNCTION()
+	void InHandItemChanged(int32 NewIndex, const FItem& Item);
 };

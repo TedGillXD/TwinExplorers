@@ -8,6 +8,7 @@
 #include "Components/GrabComponent.h"
 #include "Components/InteractComponent.h"
 #include "Components/InventoryComponent.h"
+#include "Items/InHandToolActorBase.h"
 #include "Net/UnrealNetwork.h"
 
 // Sets default values
@@ -33,6 +34,13 @@ AMainCharacterBase::AMainCharacterBase()
 
 	GrabComponent = CreateDefaultSubobject<UGrabComponent>(TEXT("GrabComp"));
 	GrabComponent->SetIsReplicated(true);
+
+	InHandItemActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("InHandItemActor"));
+	InHandItemActor->SetIsReplicated(true);
+	InHandItemActor->SetupAttachment(FirstPersonCamera);
+
+	// 绑定更换手中道具的函数
+	InventoryComponent->OnSelectedToolChanged.AddDynamic(this, &AMainCharacterBase::InHandItemChanged);
 }
 
 // Called when the game starts or when spawned
@@ -72,10 +80,34 @@ void AMainCharacterBase::AddControllerPitchInput(float Val) {
 	UpdateCameraPitchOnServer(CameraPitch);		// 否则，通过RPC更新角色在服务器中的Pitch
 }
 
+void AMainCharacterBase::UseInHandItemPressed() {
+	if(AInHandToolActorBase* InHandToolActor = Cast<AInHandToolActorBase>(InHandItemActor->GetChildActor())) {
+		InHandToolActor->UseInHandItemPressed(this);
+	}
+}
+
+void AMainCharacterBase::UseInHandItemReleased() {
+	if(AInHandToolActorBase* InHandToolActor = Cast<AInHandToolActorBase>(InHandItemActor->GetChildActor())) {
+		InHandToolActor->UseInHandItemReleased(this);
+	}
+}
+
 void AMainCharacterBase::OnRep_CameraPitch() const {
 	const FRotator Rotator = FirstPersonCamera->GetComponentRotation();
 	const FRotator NewRotator{CameraPitch, Rotator.Yaw, Rotator.Roll};
 	FirstPersonCamera->SetWorldRotation(NewRotator);
+}
+
+void AMainCharacterBase::InHandItemChanged(int32 NewIndex, const FItem& Item) {
+	if(HasAuthority()) {
+		InHandItemActor->SetChildActorClass(Item.ItemActorClass);
+	} else {
+		InHandItemChangedOnServer(NewIndex, Item);
+	}
+}
+
+void AMainCharacterBase::InHandItemChangedOnServer_Implementation(int32 NewIndex, const FItem& Item) {
+	InHandItemChanged(NewIndex, Item);
 }
 
 void AMainCharacterBase::UpdateCameraPitchOnServer_Implementation(float NewCameraPitch) {

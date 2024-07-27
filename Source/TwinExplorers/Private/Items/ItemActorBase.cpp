@@ -45,11 +45,11 @@ void AItemActorBase::Interact_Implementation(APawn* FromPawn, const FItem& InHan
 	}
 }
 
-FString AItemActorBase::GetInteractString_Implementation(const FItem& InHandItem) {
+FString AItemActorBase::GetInteractString_Implementation() {
 	return "";
 }
 
-UTexture2D* AItemActorBase::GetInteractIcon_Implementation(const FItem& InHandItem) {
+UTexture2D* AItemActorBase::GetInteractIcon_Implementation() {
 	return nullptr;
 }
 

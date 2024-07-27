@@ -6,7 +6,7 @@
 #include "UObject/NoExportTypes.h"
 #include "Item.generated.h"
 
-class AItemActorBase;
+class AInHandToolActorBase;
 /**
  * 
  */
@@ -21,7 +21,7 @@ struct FItem {
 	bool bIsTool;			// 是否是能拿在手里的道具，true为可以拿在手上，false为诸如钥匙一样的道具
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="ItemProps")
-	TSubclassOf<AItemActorBase> ItemActorClass;		// 实际在游戏场景中的表现类
+	TSubclassOf<AInHandToolActorBase> ItemActorClass;		// 实际在游戏场景中的表现类
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="ItemProps")
 	UTexture2D* Icon;		// 图标
