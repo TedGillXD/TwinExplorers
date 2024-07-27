@@ -8,6 +8,7 @@
 #include "Components/GrabComponent.h"
 #include "Components/InteractComponent.h"
 #include "Components/InventoryComponent.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 AMainCharacterBase::AMainCharacterBase()
@@ -61,4 +62,32 @@ UInventoryComponent* AMainCharacterBase::GetInventoryComponent() const {
 
 UGrabComponent* AMainCharacterBase::GetGrabComponent() const {
 	return GrabComponent;
+}
+
+void AMainCharacterBase::AddControllerPitchInput(float Val) {
+	Super::AddControllerPitchInput(Val);
+
+	// 更新Pitch，如果现在是服务器，则这个更新会通过OnRep函数复制到客户端
+	CameraPitch = FirstPersonCamera->GetComponentRotation().Pitch;
+	UpdateCameraPitchOnServer(CameraPitch);		// 否则，通过RPC更新角色在服务器中的Pitch
+}
+
+void AMainCharacterBase::OnRep_CameraPitch() const {
+	const FRotator Rotator = FirstPersonCamera->GetComponentRotation();
+	const FRotator NewRotator{CameraPitch, Rotator.Yaw, Rotator.Roll};
+	FirstPersonCamera->SetWorldRotation(NewRotator);
+}
+
+void AMainCharacterBase::UpdateCameraPitchOnServer_Implementation(float NewCameraPitch) {
+	CameraPitch = NewCameraPitch;
+	// 因为OnRep_CameraPitch只会在Client被调用，所以要在这个RPC中进行设置
+	const FRotator Rotator = FirstPersonCamera->GetComponentRotation();
+	const FRotator NewRotator{CameraPitch, Rotator.Yaw, Rotator.Roll};
+	FirstPersonCamera->SetWorldRotation(NewRotator);
+}
+
+void AMainCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(AMainCharacterBase, CameraPitch, COND_None);
 }

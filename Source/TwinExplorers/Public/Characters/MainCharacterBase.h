@@ -29,6 +29,10 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UGrabComponent* GrabComponent;			// 用来提供抓取物品的功能
+
+protected:
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CameraPitch)
+	float CameraPitch;
 	
 public:
 	// Sets default values for this character's properties
@@ -47,4 +51,14 @@ public:
 	UInteractComponent* GetInteractComponent() const;
 	UInventoryComponent* GetInventoryComponent() const;
 	UGrabComponent* GetGrabComponent() const;
+
+	virtual void AddControllerPitchInput(float Val) override;
+
+protected:
+	UFUNCTION()
+	void OnRep_CameraPitch() const;
+
+	// 负责将客户端角色的CameraPitch更新到服务器
+	UFUNCTION(Server, Unreliable)
+	void UpdateCameraPitchOnServer(float NewCameraPitch);
 };
