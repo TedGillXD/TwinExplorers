@@ -58,3 +58,7 @@ UInteractComponent* AMainCharacterBase::GetInteractComponent() const {
 UInventoryComponent* AMainCharacterBase::GetInventoryComponent() const {
 	return InventoryComponent;
 }
+
+UGrabComponent* AMainCharacterBase::GetGrabComponent() const {
+	return GrabComponent;
+}

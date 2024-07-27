@@ -3,13 +3,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "DragableActorBase.h"
 #include "Item.h"
+#include "Interfaces/GrabableInterface.h"
 #include "Interfaces/InteractableInterface.h"
 #include "UObject/NoExportTypes.h"
 #include "ItemActorBase.generated.h"
 
 UCLASS()
-class AItemActorBase : public AActor, public IInteractableInterface {
+class AItemActorBase : public ADragableActorBase, public IInteractableInterface {
 	GENERATED_BODY()
 
 public:

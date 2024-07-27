@@ -30,46 +30,57 @@ UGrabComponent::UGrabComponent()
 void UGrabComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	AddRequireComponentsOnServer();
+
+	if(GetOwnerRole() == ROLE_Authority) {
+		AddRequireComponentsOnServer();
+	}
 }
 
-void UGrabComponent::GrabItem() {
-	if(GetOwnerRole() == ROLE_Authority) {
-		FHitResult HitResult;
-		FVector Start = Owner->GetCameraComponent()->GetComponentLocation();
-		FVector End = Start + Owner->GetCameraComponent()->GetForwardVector() * DetectLength;
-		FCollisionQueryParams Params;
-		Params.AddIgnoredActor(Owner);
-		if(GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_PhysicsBody, Params)) {
-			// 0. for debug
-			DrawDebugLineTraceSingle(GetWorld(), Start, End, EDrawDebugTrace::ForDuration, true, HitResult, FLinearColor::Red, FLinearColor::Green, 5.f);
-		
-			// 1. 检查Actor是否能被Grab
-			if(!HitResult.GetActor()->Implements<UGrabableInterface>()) {		// 实现了Grabbable这个接口的才能被抓取
-				bIsGrabbing = false;
-				return;
-			}
-
-			// 2. 将Mesh移动过去
-			GrabItemMeshComp->SetWorldLocation(HitResult.ImpactPoint);
-
-			// 3. 设置物理约束
-			GrabItemPhysicsConstraintComp->SetConstrainedComponents(GrabItemMeshComp, NAME_None, HitResult.GetComponent(), HitResult.BoneName);
-
-			// 4. 设置已经抓起物体
-			HeldObject = HitResult.GetActor();
-			bIsGrabbing = true;
-
-			// 5. 调用抓取事件
-			IGrabableInterface::Execute_OnGrab(HeldObject);
+void UGrabComponent::GrabItemInternal(const bool bIsHit, const FHitResult& HitResult) {
+	if(bIsHit) {
+		// 1. 检查Actor是否能被Grab
+		if(!HitResult.GetActor()->Implements<UGrabableInterface>()) {		// 实现了Grabbable这个接口的才能被抓取
+			bIsGrabbing = false;
 			return;
 		}
 
-		HeldObject = nullptr;
-		bIsGrabbing = false;
+		// 2. 将Mesh移动过去
+		HeldComponent = HitResult.GetComponent();
+		if(!HeldComponent) {
+			return;
+		}
+		GrabItemMeshComp->SetWorldLocation(HitResult.ImpactPoint);
+
+		// 3. 设置物理约束
+		GrabItemPhysicsConstraintComp->SetConstrainedComponents(GrabItemMeshComp, NAME_None, HeldComponent, HitResult.BoneName);
+
+		// 4. 设置已经抓起物体
+		HeldObject = HitResult.GetActor();
+		bIsGrabbing = true;
+
+		// 5. 调用抓取事件
+		IGrabableInterface::Execute_OnGrab(HeldObject);
+		return;
+	}
+	
+	HeldObject = nullptr;
+	bIsGrabbing = false;
+}
+
+void UGrabComponent::GrabItem() {
+	FHitResult HitResult;
+	FVector Start = Owner->GetCameraComponent()->GetComponentLocation();
+	FVector End = Start + Owner->GetCameraComponent()->GetForwardVector() * DetectLength;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(Owner);
+	bool bIsHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_PhysicsBody, Params);
+	// 0. for debug
+	DrawDebugLineTraceSingle(GetWorld(), Start, End, EDrawDebugTrace::ForDuration, true, HitResult, FLinearColor::Red, FLinearColor::Green, 5.f);
+	
+	if(GetOwnerRole() == ROLE_Authority) {
+		GrabItemInternal(bIsHit, HitResult);
 	} else {
-		GrabItemOnServer();
+		GrabItemOnServer(bIsHit, HitResult);
 	}
 }
 
@@ -80,18 +91,29 @@ void UGrabComponent::DropItemOnServer_Implementation() {
 void UGrabComponent::DropItem() {
 	if(GetOwnerRole() == ROLE_Authority) {
 		if(!bIsGrabbing) { return; }
-
+		
+		HeldComponent->WakeRigidBody();
+		HeldComponent->SetSimulatePhysics(true);		// 重新将客户端的SimulatePhysics设置为true
 		GrabItemPhysicsConstraintComp->BreakConstraint();
+		IGrabableInterface::Execute_OnDrop(HeldObject);
 		HeldObject = nullptr;
 		bIsGrabbing = false;
-		IGrabableInterface::Execute_OnDrop(HeldObject);
 	} else {
 		DropItemOnServer();
 	}
 }
 
-void UGrabComponent::GrabItemOnServer_Implementation() {
-	GrabItem();
+void UGrabComponent::OnRep_HeldComponent() {
+	if(!HeldComponent) {
+		return;
+	}
+
+	// 当物体被拖拽的时候就将客户端的物体查询设置为NoCollision
+	HeldComponent->SetSimulatePhysics(false);
+}
+
+void UGrabComponent::GrabItemOnServer_Implementation(const bool bIsHit, const FHitResult& HitResult) {
+	GrabItemInternal(bIsHit, HitResult);
 }
 
 void UGrabComponent::AddRequireComponentsOnServer_Implementation() {
@@ -108,7 +130,8 @@ void UGrabComponent::AddRequireComponentsOnServer_Implementation() {
 			return;
 		}
 
-		GrabItemMeshComp->bHiddenInGame = true;
+		// GrabItemMeshComp->bHiddenInGame = true;
+		GrabItemMeshComp->SetCollisionResponseToAllChannels(ECR_Ignore);
 		if(VisibleMesh) {
 			GrabItemMeshComp->SetStaticMesh(VisibleMesh);
 		}
@@ -154,11 +177,12 @@ void UGrabComponent::AddRequireComponentsOnServer_Implementation() {
 void UGrabComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(UGrabComponent, Owner);
-	DOREPLIFETIME(UGrabComponent, bIsInitialized);
-	DOREPLIFETIME(UGrabComponent, bIsGrabbing);
-	DOREPLIFETIME(UGrabComponent, HeldObject);
-	DOREPLIFETIME(UGrabComponent, bIsOn);
-	DOREPLIFETIME(UGrabComponent, GrabItemMeshComp);
-	DOREPLIFETIME(UGrabComponent, GrabItemPhysicsConstraintComp);
+	DOREPLIFETIME_CONDITION(UGrabComponent, Owner, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(UGrabComponent, bIsInitialized, COND_None);
+	DOREPLIFETIME_CONDITION(UGrabComponent, bIsGrabbing, COND_None);
+	DOREPLIFETIME_CONDITION(UGrabComponent, HeldObject, COND_None);
+	DOREPLIFETIME_CONDITION(UGrabComponent, HeldComponent, COND_None);
+	DOREPLIFETIME_CONDITION(UGrabComponent, bIsOn, COND_None);
+	DOREPLIFETIME_CONDITION(UGrabComponent, GrabItemMeshComp, COND_None);
+	DOREPLIFETIME_CONDITION(UGrabComponent, GrabItemPhysicsConstraintComp, COND_None);
 }

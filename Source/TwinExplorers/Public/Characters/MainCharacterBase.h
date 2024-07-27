@@ -46,4 +46,5 @@ public:
 	UCameraComponent* GetCameraComponent() const;
 	UInteractComponent* GetInteractComponent() const;
 	UInventoryComponent* GetInventoryComponent() const;
+	UGrabComponent* GetGrabComponent() const;
 };

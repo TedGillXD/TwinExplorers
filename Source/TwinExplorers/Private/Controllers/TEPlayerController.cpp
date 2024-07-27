@@ -8,17 +8,32 @@
 #include "CommonInputSubsystem.h"
 #include "InputActionValue.h"
 #include "Characters/MainCharacterBase.h"
+#include "Components/GrabComponent.h"
 #include "Components/InteractComponent.h"
 #include "GameFramework/Character.h"
 #include "Interfaces/MainCharacterInterface.h"
 
 
 void ATEPlayerController::UseItemPressed() {
+	// for test now
+	if(!GetCharacter()) { return; }
+
+	AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter());
+	UGrabComponent* GrabComp = CharacterBase->GetGrabComponent();
+	if(GrabComp) {
+		GrabComp->GrabItem();
+	}
 	
 }
 
 void ATEPlayerController::UseItemReleased() {
-	
+	if(!GetCharacter()) { return; }
+
+	AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter());
+	UGrabComponent* GrabComp = CharacterBase->GetGrabComponent();
+	if(GrabComp) {
+		GrabComp->DropItem();
+	}
 }
 
 void ATEPlayerController::Move(const FInputActionValue& Value) {

@@ -40,6 +40,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	AActor* HeldObject;		// 正在被抓取的物品
 
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_HeldComponent)
+	UPrimitiveComponent* HeldComponent;		//
+
 	UPROPERTY(BlueprintReadWrite, Replicated)
 	bool bIsOn;		// 目前是否能触发
 
@@ -55,14 +58,21 @@ protected:
 	void AddRequireComponentsOnServer();
 
 	UFUNCTION(Server, Reliable)
-	void GrabItemOnServer();
-	
-	UFUNCTION(BlueprintCallable)
-	void GrabItem();
+	void GrabItemOnServer(const bool bIsHit, const FHitResult& HitResult);
 
 	UFUNCTION(Server, Reliable)
 	void DropItemOnServer();
 
+public:
+	void GrabItemInternal(bool bIsHit, const FHitResult& HitResult);
+	
+	UFUNCTION(BlueprintCallable)
+	void GrabItem();
+	
 	UFUNCTION(BlueprintCallable)
 	void DropItem();
+
+protected:
+	UFUNCTION()
+	void OnRep_HeldComponent();
 };
