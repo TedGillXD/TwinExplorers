@@ -41,7 +41,7 @@ public:
 	void Interact();
 
 protected:
-	UPROPERTY()
+	UPROPERTY(Replicated)
 	AMainCharacterBase* Owner;
 
 	UPROPERTY()

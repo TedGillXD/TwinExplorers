@@ -127,6 +127,11 @@ void UInventoryComponent::ChangedInHandItem(int32 NewIndex) {
 	}
 }
 
+const FItem& UInventoryComponent::GetInHandItem() {
+	if(SelectedToolIndex < 0 || SelectedToolIndex >= Tools.Num()) { return EmptyItem; }
+	return Tools[SelectedToolIndex];
+}
+
 void UInventoryComponent::OnRep_Tools() const {
 	OnInventoryChanged.Broadcast(Tools, Props);
 }

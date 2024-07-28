@@ -6,6 +6,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/GrabComponent.h"
+#include "Components/IceGenerationComponent.h"
 #include "Components/InteractComponent.h"
 #include "Components/InventoryComponent.h"
 #include "Items/InHandToolActorBase.h"
@@ -38,6 +39,9 @@ AMainCharacterBase::AMainCharacterBase()
 	InHandItemActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("InHandItemActor"));
 	InHandItemActor->SetIsReplicated(true);
 	InHandItemActor->SetupAttachment(FirstPersonCamera);
+
+	IceGenerationComponent = CreateDefaultSubobject<UIceGenerationComponent>(TEXT("IceGenerationComp"));
+	IceGenerationComponent->SetIsReplicated(true);
 
 	// 绑定更换手中道具的函数
 	InventoryComponent->OnSelectedToolChanged.AddDynamic(this, &AMainCharacterBase::InHandItemChanged);
@@ -72,6 +76,10 @@ UGrabComponent* AMainCharacterBase::GetGrabComponent() const {
 	return GrabComponent;
 }
 
+UIceGenerationComponent* AMainCharacterBase::GetIceGenerationComponent() const {
+	return IceGenerationComponent;
+}
+
 void AMainCharacterBase::AddControllerPitchInput(float Val) {
 	Super::AddControllerPitchInput(Val);
 
@@ -89,6 +97,18 @@ void AMainCharacterBase::UseInHandItemPressed() {
 void AMainCharacterBase::UseInHandItemReleased() {
 	if(AInHandToolActorBase* InHandToolActor = Cast<AInHandToolActorBase>(InHandItemActor->GetChildActor())) {
 		InHandToolActor->UseInHandItemReleased(this);
+	}
+}
+
+void AMainCharacterBase::CancelUseItemPressed() {
+	if(AInHandToolActorBase* InHandToolActor = Cast<AInHandToolActorBase>(InHandItemActor->GetChildActor())) {
+		InHandToolActor->CancelUseItemPressed(this);
+	}
+}
+
+void AMainCharacterBase::CancelUseItemReleased() {
+	if(AInHandToolActorBase* InHandToolActor = Cast<AInHandToolActorBase>(InHandItemActor->GetChildActor())) {
+		InHandToolActor->CancelUseItemReleased(this);
 	}
 }
 

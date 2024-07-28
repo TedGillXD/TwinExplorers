@@ -120,6 +120,7 @@ void UGrabComponent::GrabItemOnServer_Implementation(const bool bIsHit, const FH
 
 void UGrabComponent::AddRequireComponentsOnServer_Implementation() {
 	if(GetOwnerRole() == ROLE_Authority) {
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Create Mesh!");
 		Owner = Cast<AMainCharacterBase>(GetOwner());
 		if(!Owner) {
 			return;
@@ -180,11 +181,11 @@ void UGrabComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(UGrabComponent, Owner, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(UGrabComponent, bIsInitialized, COND_None);
-	DOREPLIFETIME_CONDITION(UGrabComponent, bIsGrabbing, COND_None);
-	DOREPLIFETIME_CONDITION(UGrabComponent, HeldObject, COND_None);
-	DOREPLIFETIME_CONDITION(UGrabComponent, HeldComponent, COND_None);
-	DOREPLIFETIME_CONDITION(UGrabComponent, bIsOn, COND_None);
+	DOREPLIFETIME_CONDITION(UGrabComponent, bIsInitialized, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(UGrabComponent, bIsGrabbing, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(UGrabComponent, HeldObject, COND_None);				
+	DOREPLIFETIME_CONDITION(UGrabComponent, HeldComponent, COND_None);		// 这个需要所有客户端同步用来防止物体抽搐，主要是用来将所有客户端中对应的物体的模拟物理给关闭掉
+	DOREPLIFETIME_CONDITION(UGrabComponent, bIsOn, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(UGrabComponent, GrabItemMeshComp, COND_None);
-	DOREPLIFETIME_CONDITION(UGrabComponent, GrabItemPhysicsConstraintComp, COND_None);
+	DOREPLIFETIME_CONDITION(UGrabComponent, GrabItemPhysicsConstraintComp, COND_OwnerOnly);
 }

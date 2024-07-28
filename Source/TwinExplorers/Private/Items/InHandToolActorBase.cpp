@@ -34,3 +34,11 @@ void AInHandToolActorBase::UseInHandItemPressed_Implementation(AMainCharacterBas
 void AInHandToolActorBase::UseInHandItemReleased_Implementation(AMainCharacterBase* FromCharacter) {
 	// do nothing
 }
+
+void AInHandToolActorBase::CancelUseItemPressed_Implementation(AMainCharacterBase* FromCharacter) {
+	// do nothing
+}
+
+void AInHandToolActorBase::CancelUseItemReleased_Implementation(AMainCharacterBase* FromCharacter) {
+	// do nothing
+}

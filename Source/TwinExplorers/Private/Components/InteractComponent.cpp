@@ -5,6 +5,7 @@
 
 #include "Camera/CameraComponent.h"
 #include "Characters/MainCharacterBase.h"
+#include "Components/InventoryComponent.h"
 #include "Interfaces/InteractableInterface.h"
 #include "Net/UnrealNetwork.h"
 
@@ -65,7 +66,7 @@ void UInteractComponent::DetectInteractions() {
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(Owner);
 	bool IsHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params);
-	if(IsHit && HitResult.GetActor()->Implements<UInteractableInterface>()) {		// 检测到物体了，并且是一个Interactable的物体
+	if(IsHit && HitResult.GetActor()->Implements<UInteractableInterface>() && IInteractableInterface::Execute_CanInteract(HitResult.GetActor(), Owner->GetInventoryComponent()->GetInHandItem())) {		// 检测到物体了，并且是一个Interactable的物体
 		// 当检测到的Actor需要更新状态的时候
 		if(IInteractableInterface::Execute_ShouldUpdate(HitResult.GetActor())) {
 			IInteractableInterface::Execute_Updated(HitResult.GetActor());
@@ -90,4 +91,10 @@ void UInteractComponent::DetectInteractions() {
 		}
 		DetectedActor = nullptr;
 	}
+}
+
+void UInteractComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(UInteractComponent, Owner, COND_OwnerOnly);
 }

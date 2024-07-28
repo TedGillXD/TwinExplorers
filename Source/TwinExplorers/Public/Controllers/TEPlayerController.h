@@ -46,11 +46,16 @@ public:
 	UInputAction* UseItemButtonReleasedAction;				// 使用物品的Action松开事件
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* MouseRightClickAction;			// 后续要改名
+	UInputAction* CancelUseItemBottomPressedAction;		// 取消使用物品的Action按下事件
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
+	UInputAction* CancelUseItemBottomReleasedAction;	// 取消使用物品的Action松开事件
 
 public:
 	void UseItemPressed();
 	void UseItemReleased();
+	void CancelUseItemPressed();
+	void CancelUseItemReleased();
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Interact();

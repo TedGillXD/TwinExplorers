@@ -71,6 +71,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ChangedInHandItem(int32 NewIndex);
 
+	UFUNCTION(BlueprintCallable)
+	const FItem& GetInHandItem();
+
 protected:
 	UFUNCTION()
 	void OnRep_Tools() const;

@@ -25,12 +25,23 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	
-	// 使用物品时会调用这个函数
+	// 按下使用物品按钮的时候调用这个函数
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	void UseInHandItemPressed(AMainCharacterBase* FromCharacter);
 	virtual void UseInHandItemPressed_Implementation(AMainCharacterBase* FromCharacter);
 
+	// 松开使用物品按钮的时候调用这个函数
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	void UseInHandItemReleased(AMainCharacterBase* FromCharacter);
 	virtual void UseInHandItemReleased_Implementation(AMainCharacterBase* FromCharacter);
+
+	// 按下取消使用物品按钮的时候调用这个函数
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void CancelUseItemPressed(AMainCharacterBase* FromCharacter);
+	virtual void CancelUseItemPressed_Implementation(AMainCharacterBase* FromCharacter);
+
+	// 松开取消使用物品按钮的时候调用这个函数
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void CancelUseItemReleased(AMainCharacterBase* FromCharacter);
+	virtual void CancelUseItemReleased_Implementation(AMainCharacterBase* FromCharacter);
 };

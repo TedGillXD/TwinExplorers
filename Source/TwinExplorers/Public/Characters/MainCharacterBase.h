@@ -8,6 +8,7 @@
 #include "Items/Item.h"
 #include "MainCharacterBase.generated.h"
 
+class UIceGenerationComponent;
 class UGrabComponent;
 class UInventoryComponent;
 class UInteractComponent;
@@ -34,6 +35,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UChildActorComponent* InHandItemActor;			// 握在手里的东西，开启复制这样就能把InHandItemActor的变化同步到客户端
 
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
+	UIceGenerationComponent* IceGenerationComponent;		// 用来在特定的表面上生成柱子的功能
+
 protected:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CameraPitch)
 	float CameraPitch;
@@ -55,6 +59,7 @@ public:
 	UInteractComponent* GetInteractComponent() const;
 	UInventoryComponent* GetInventoryComponent() const;
 	UGrabComponent* GetGrabComponent() const;
+	UIceGenerationComponent* GetIceGenerationComponent() const;
 
 	virtual void AddControllerPitchInput(float Val) override;
 	
@@ -63,6 +68,12 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void UseInHandItemReleased();
+
+	UFUNCTION(BlueprintCallable)
+	void CancelUseItemPressed();
+
+	UFUNCTION(BlueprintCallable)
+	void CancelUseItemReleased();
 
 protected:
 	UFUNCTION()

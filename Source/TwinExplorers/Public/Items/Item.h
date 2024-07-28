@@ -26,3 +26,5 @@ struct FItem {
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="ItemProps")
 	UTexture2D* Icon;		// 图标
 };
+
+static FItem EmptyItem = {};

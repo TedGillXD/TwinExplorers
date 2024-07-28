@@ -30,6 +30,22 @@ void ATEPlayerController::UseItemReleased() {
 	}
 }
 
+void ATEPlayerController::CancelUseItemPressed() {
+	if(!GetCharacter()) { return; }
+
+	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
+		CharacterBase->CancelUseItemPressed();
+	}
+}
+
+void ATEPlayerController::CancelUseItemReleased() {
+	if(!GetCharacter()) { return; }
+
+	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
+		CharacterBase->CancelUseItemReleased();
+	}
+}
+
 void ATEPlayerController::Move(const FInputActionValue& Value) {
 	if(!GetPawn()) { return; }
 
@@ -90,6 +106,8 @@ void ATEPlayerController::SetupInputComponent() {
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Triggered, this, &ATEPlayerController::Interact);
 		EnhancedInputComponent->BindAction(UseItemButtonPressedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::UseItemPressed);
 		EnhancedInputComponent->BindAction(UseItemButtonReleasedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::UseItemReleased);
+		EnhancedInputComponent->BindAction(CancelUseItemBottomPressedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::CancelUseItemPressed);
+		EnhancedInputComponent->BindAction(CancelUseItemBottomReleasedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::CancelUseItemReleased);
 	}
 }
 
