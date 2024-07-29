@@ -17,7 +17,7 @@ class TWINEXPLORERS_API UGrabComponent : public UActorComponent
 
 protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="GrabItem Props")
-	UStaticMesh* VisibleMesh;			// for debug
+	UStaticMesh* VisibleMesh;			// 需要有一个能看到的Mesh才能正确绑定PhysicsConstraint
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="GrabItem Props")
 	float DetectLength;			// 最远的检测距离

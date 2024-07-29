@@ -42,17 +42,17 @@ void UInteractComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 }
 
 void UInteractComponent::InteractOnServer_Implementation(AActor* InDetectedActor) {
-	FItem TempItem{};		// 用来测试的，这个InHandItem应该是从Inventory中得到的
-	if(InDetectedActor && InDetectedActor->Implements<UInteractableInterface>() && IInteractableInterface::Execute_CanInteract(InDetectedActor, TempItem)) {
-		IInteractableInterface::Execute_Interact(InDetectedActor, Owner, TempItem);
+	const FItem& Item = Owner->GetInventoryComponent()->GetInHandItem();
+	if(InDetectedActor && InDetectedActor->Implements<UInteractableInterface>() && IInteractableInterface::Execute_CanInteract(InDetectedActor, Item)) {
+		IInteractableInterface::Execute_Interact(InDetectedActor, Owner, Item);
 	}
 }
 
 void UInteractComponent::Interact() {
 	if(GetOwnerRole() == ROLE_Authority) {
-		FItem TempItem{};		// 用来测试的，这个InHandItem应该是从Inventory中得到的
-		if(DetectedActor && DetectedActor->Implements<UInteractableInterface>() && IInteractableInterface::Execute_CanInteract(DetectedActor, TempItem)) {
-			IInteractableInterface::Execute_Interact(DetectedActor, Owner, TempItem);
+		const FItem& Item = Owner->GetInventoryComponent()->GetInHandItem();
+		if(DetectedActor && DetectedActor->Implements<UInteractableInterface>() && IInteractableInterface::Execute_CanInteract(DetectedActor, Item)) {
+			IInteractableInterface::Execute_Interact(DetectedActor, Owner, Item);
 		}
 	} else {		// 如果现在在客户端，则将其放到服务端上写
 		InteractOnServer(DetectedActor);
@@ -89,7 +89,7 @@ void UInteractComponent::DetectInteractions() {
 				IInteractableInterface::Execute_Unfocused(DetectedActor);
 			}
 		}
-		DetectedActor = nullptr;
+		DetectedActor = HitResult.GetActor();
 	}
 }
 

@@ -7,6 +7,7 @@
 #include "IceGenerationComponent.generated.h"
 
 
+class AIcePillar;
 class UCameraComponent;
 class AMainCharacterBase;
 
@@ -21,10 +22,13 @@ public:
 
 private:
 	UPROPERTY(Replicated)
-	AActor* GeneratedIce;		// 对生成出的Ice的一个引用，因为一次只允许一个冰柱的存在，所以在存在有冰柱的时候就不允许创建新的
+	AIcePillar* GeneratedIce;		// 对生成出的Ice的一个引用，因为一次只允许一个冰柱的存在，所以在存在有冰柱的时候就不允许创建新的
 
 	UPROPERTY(Replicated)
 	AMainCharacterBase* Owner;
+	
+	UPROPERTY()
+	UStaticMeshComponent* ForDetectionStaticMeshComp;			// 生成出来用来检测重叠的Actor
 	
 protected:
 	UPROPERTY(Replicated)
@@ -34,16 +38,23 @@ protected:
 	float DetectLength;
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Component Props")
-	TSubclassOf<AActor> IceActorClass;
+	TSubclassOf<AIcePillar> IceActorClass;
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Component Props")
-	TSubclassOf<AActor> CheckSpaceActorClass;		// 用来生成出来检查是否能创建的
+	UStaticMesh* CheckSpaceStaticMesh;		// 用来生成出来检查是否能创建的
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Component Props")
+	UMaterialInterface* UnspawnableMaterial;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Component Props")
+	UMaterialInterface* SpawnableMaterial;
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Component Props")
 	TEnumAsByte<ECollisionChannel> SurfaceTraceChannel;
 	
 	bool bIsChecking = false;
 
+	UPROPERTY(BlueprintReadOnly)
 	bool bCanSpawn = false;
 
 protected:
@@ -51,7 +62,9 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	// 检查是否能生成
+	void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	
+	// 开始检查是否能生成
 	UFUNCTION(BlueprintCallable)
 	void DoSpawnCheck();			
 
@@ -67,5 +80,11 @@ public:
 	void GenerateIceOnServer(bool bIsHit, const FHitResult& HitResult);
 
 private:
+	UFUNCTION()
+	void OnPillarDestroy();
+	
 	void GenerateIceInternal(bool bIsHit, const FHitResult& HitResult);		// 这个函数负责生成Ice在指定位置，只会运行在服务器上
+
+	void UpdateDetectorMaterial() const;
+	void UpdateMaterial(UMaterialInterface* NewMaterial) const;
 };

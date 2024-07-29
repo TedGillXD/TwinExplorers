@@ -37,7 +37,7 @@ void UGrabComponent::BeginPlay()
 void UGrabComponent::GrabItemInternal(const bool bIsHit, const FHitResult& HitResult) {
 	if(bIsHit) {
 		// 1. 检查Actor是否能被Grab
-		if(!HitResult.GetActor()->Implements<UGrabableInterface>()) {		// 实现了Grabbable这个接口的才能被抓取
+		if(!HitResult.GetActor()->Implements<UGrabableInterface>()) {		// 实现了Grabable这个接口的才能被抓取
 			bIsGrabbing = false;
 			return;
 		}
@@ -120,7 +120,6 @@ void UGrabComponent::GrabItemOnServer_Implementation(const bool bIsHit, const FH
 
 void UGrabComponent::AddRequireComponentsOnServer_Implementation() {
 	if(GetOwnerRole() == ROLE_Authority) {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Create Mesh!");
 		Owner = Cast<AMainCharacterBase>(GetOwner());
 		if(!Owner) {
 			return;
