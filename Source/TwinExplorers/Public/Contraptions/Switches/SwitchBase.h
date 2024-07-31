@@ -23,4 +23,7 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, BlueprintAssignable)
 	FOnSwitchDeactivated OnSwitchDeactivated;		// 当按键 激活 -> 未激活 时调用
+
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category="Switch Props")
+	bool bIsOn = false;			// 当前的状态
 };

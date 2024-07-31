@@ -30,8 +30,6 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category="PressurePlate Props")
 	float TriggeredOffset;		// 触发的偏移量
-
-	bool bIsActivated;
 	
 private:
 	float InitialZ;
@@ -44,5 +42,6 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 
 private:
+	UFUNCTION(BlueprintPure)
 	bool IsPlateStable() const;
 };

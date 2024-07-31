@@ -44,7 +44,7 @@ void UGrabComponent::GrabItemInternal(const bool bIsHit, const FHitResult& HitRe
 
 		// 2. 将Mesh移动过去
 		HeldComponent = HitResult.GetComponent();
-		if(!HeldComponent) {
+		if(!HeldComponent && HeldComponent->GetCollisionObjectType() != ECC_PhysicsBody) {
 			return;
 		}
 		GrabItemMeshComp->SetWorldLocation(HitResult.ImpactPoint);
@@ -152,7 +152,7 @@ void UGrabComponent::AddRequireComponentsOnServer_Implementation() {
 		GrabItemPhysicsConstraintComp->SetLinearVelocityDrive(true, true, true);
 		GrabItemPhysicsConstraintComp->SetLinearPositionTarget({0.0, 0.0, 0.0});
 		GrabItemPhysicsConstraintComp->SetLinearVelocityTarget({0.0, 0.0, 0.0});
-		GrabItemPhysicsConstraintComp->SetLinearDriveParams(1000.f, 100.f, 0.f);
+		GrabItemPhysicsConstraintComp->SetLinearDriveParams(500.f, 100.f, 0.f);
 
 		// 设置Angular Limits
 		GrabItemPhysicsConstraintComp->SetAngularDriveMode(EAngularDriveMode::TwistAndSwing);
@@ -160,7 +160,7 @@ void UGrabComponent::AddRequireComponentsOnServer_Implementation() {
 		GrabItemPhysicsConstraintComp->SetAngularVelocityDrive(true, true);
 		GrabItemPhysicsConstraintComp->SetAngularOrientationTarget({0.0, 0.0, 0.0});
 		GrabItemPhysicsConstraintComp->SetAngularVelocityTarget({0.0, 0.0, 0.0});
-		GrabItemPhysicsConstraintComp->SetAngularDriveParams(1000.f, 100.f, 0.f);
+		GrabItemPhysicsConstraintComp->SetAngularDriveParams(500.f, 100.f, 0.f);
 
 		GrabItemMeshComp->RegisterComponent();
 		GrabItemPhysicsConstraintComp->RegisterComponent();

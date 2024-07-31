@@ -42,7 +42,7 @@ APressurePlate::APressurePlate() {
 	// 绑定两个组件
 	PhysicsConstraintComp->SetConstrainedComponents(BaseComp, NAME_None, PlateComp, NAME_None);
 
-	bIsActivated = false;
+	bIsOn = false;
 }
 
 void APressurePlate::BeginPlay() {
@@ -53,16 +53,15 @@ void APressurePlate::BeginPlay() {
 
 void APressurePlate::Tick(float DeltaSeconds) {
 	Super::Tick(DeltaSeconds);
-
-	if(IsPlateStable()) {
-		if(const float CurrentZ = PlateComp->GetComponentLocation().Z; InitialZ - CurrentZ >= TriggeredOffset && !bIsActivated) {
-			OnSwitchActivated.Broadcast();
-			bIsActivated = true;
-		} else if(InitialZ - CurrentZ < TriggeredOffset && bIsActivated) {
-			OnSwitchDeactivated.Broadcast();
-			bIsActivated = false;
-		}
-	}
+	
+	const float CurrentZ = PlateComp->GetComponentLocation().Z;
+    if (InitialZ - CurrentZ >= TriggeredOffset && !bIsOn) {
+        bIsOn = true;
+        OnSwitchActivated.Broadcast();
+    } else if (InitialZ - CurrentZ < TriggeredOffset && bIsOn) {
+        bIsOn = false;
+        OnSwitchDeactivated.Broadcast();
+    }
 }
 
 bool APressurePlate::IsPlateStable() const {
