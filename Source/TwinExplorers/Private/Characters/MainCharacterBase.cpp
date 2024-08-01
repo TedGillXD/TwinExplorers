@@ -9,6 +9,7 @@
 #include "Components/IceGenerationComponent.h"
 #include "Components/InteractComponent.h"
 #include "Components/InventoryComponent.h"
+#include "GameFramework/PawnMovementComponent.h"
 #include "Items/InHandToolActorBase.h"
 #include "Net/UnrealNetwork.h"
 
@@ -124,6 +125,22 @@ void AMainCharacterBase::InHandItemChanged(int32 NewIndex, const FItem& Item) {
 	} else {
 		InHandItemChangedOnServer(NewIndex, Item);
 	}
+}
+
+void AMainCharacterBase::Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) {
+	// 这个函数默认执行在客户端
+	SetActorLocationAndRotation(TargetLocation, TargetRotation);		// 在客户端执行一次使其能计算出准确的Velocity
+	if(GetController()) {		// 在客户端中设置这个ControlRotation才能生效
+		GetController()->SetControlRotation(TargetRotation);
+	}
+	SetSpeedAndTransformOnServer(TargetLocation, TargetRotation, GetActorForwardVector() * GetVelocity().Length());
+}
+
+void AMainCharacterBase::SetSpeedAndTransformOnServer_Implementation(const FVector TargetLocation,
+	const FRotator& TargetRotation, const FVector& NewVelocity) {
+	// 下面的设置Location和Rotation需要在Server做
+	SetActorLocationAndRotation(TargetLocation, TargetRotation);
+	LaunchCharacter(NewVelocity, true, true);
 }
 
 void AMainCharacterBase::InHandItemChangedOnServer_Implementation(int32 NewIndex, const FItem& Item) {

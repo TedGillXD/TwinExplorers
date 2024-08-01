@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Interfaces/MainCharacterInterface.h"
+#include "Interfaces/TransportableInterface.h"
 #include "Items/Item.h"
 #include "MainCharacterBase.generated.h"
 
@@ -15,7 +16,7 @@ class UInteractComponent;
 class UCameraComponent;
 
 UCLASS()
-class TWINEXPLORERS_API AMainCharacterBase : public ACharacter
+class TWINEXPLORERS_API AMainCharacterBase : public ACharacter, public ITransportableInterface
 {
 	GENERATED_BODY()
 
@@ -88,4 +89,10 @@ protected:
 
 	UFUNCTION()
 	void InHandItemChanged(int32 NewIndex, const FItem& Item);
+
+protected:
+	virtual void Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) override;
+
+	UFUNCTION(Server, Reliable)
+	void SetSpeedAndTransformOnServer(const FVector TargetLocation, const FRotator& TargetRotation, const FVector& NewVelocity);
 };
