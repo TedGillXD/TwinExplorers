@@ -9,6 +9,7 @@
 #include "Components/IceGenerationComponent.h"
 #include "Components/InteractComponent.h"
 #include "Components/InventoryComponent.h"
+#include "Components/PortalGenerationComponent.h"
 #include "GameFramework/PawnMovementComponent.h"
 #include "Items/InHandToolActorBase.h"
 #include "Net/UnrealNetwork.h"
@@ -43,6 +44,9 @@ AMainCharacterBase::AMainCharacterBase()
 
 	IceGenerationComponent = CreateDefaultSubobject<UIceGenerationComponent>(TEXT("IceGenerationComp"));
 	IceGenerationComponent->SetIsReplicated(true);
+
+	PortalGenerationComponent = CreateDefaultSubobject<UPortalGenerationComponent>(TEXT("PortalGenerationComp"));
+	PortalGenerationComponent->SetIsReplicated(true);
 
 	// 绑定更换手中道具的函数
 	InventoryComponent->OnSelectedToolChanged.AddDynamic(this, &AMainCharacterBase::InHandItemChanged);
@@ -128,19 +132,23 @@ void AMainCharacterBase::InHandItemChanged(int32 NewIndex, const FItem& Item) {
 }
 
 void AMainCharacterBase::Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) {
-	// 这个函数默认执行在客户端
-	SetActorLocationAndRotation(TargetLocation, TargetRotation);		// 在客户端执行一次使其能计算出准确的Velocity
-	if(GetController()) {		// 在客户端中设置这个ControlRotation才能生效
+	// 这个函数默认执行在服务器
+	float Speed = GetVelocity().Length();
+	SetActorLocationAndRotation(TargetLocation, { 0.0, TargetRotation.Yaw, 0.0 });
+	if(GetController()) {		// 在客户端中设置这个ControlRotation才能生效，但是需要在服务器上做一次来保证得到正确的速度方向
 		GetController()->SetControlRotation(TargetRotation);
 	}
-	SetSpeedAndTransformOnServer(TargetLocation, TargetRotation, GetActorForwardVector() * GetVelocity().Length());
+
+	// 速度要在服务端设置
+	GetMovementComponent()->Velocity = Speed * GetActorForwardVector();
+	SetControlRotationOnClient(TargetLocation, TargetRotation, Speed * GetActorForwardVector());
 }
 
-void AMainCharacterBase::SetSpeedAndTransformOnServer_Implementation(const FVector TargetLocation,
-	const FRotator& TargetRotation, const FVector& NewVelocity) {
-	// 下面的设置Location和Rotation需要在Server做
-	SetActorLocationAndRotation(TargetLocation, TargetRotation);
-	LaunchCharacter(NewVelocity, true, true);
+void AMainCharacterBase::SetControlRotationOnClient_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& LaunchVelocity) {
+	SetActorLocationAndRotation(TargetLocation, { 0.0, TargetRotation.Yaw, 0.0 });
+	if(GetController()) {		// 在客户端中设置这个ControlRotation才能生效，但是需要在服务器上做一次来保证得到正确的速度方向
+		GetController()->SetControlRotation(TargetRotation);
+	}
 }
 
 void AMainCharacterBase::InHandItemChangedOnServer_Implementation(int32 NewIndex, const FItem& Item) {

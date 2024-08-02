@@ -9,6 +9,7 @@
 #include "Items/Item.h"
 #include "MainCharacterBase.generated.h"
 
+class UPortalGenerationComponent;
 class UIceGenerationComponent;
 class UGrabComponent;
 class UInventoryComponent;
@@ -32,6 +33,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UGrabComponent* GrabComponent;			// 用来提供抓取物品的功能
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
+	UPortalGenerationComponent* PortalGenerationComponent;		// 提供发射传送门的能力
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UChildActorComponent* InHandItemActor;			// 握在手里的东西，开启复制这样就能把InHandItemActor的变化同步到客户端
@@ -93,6 +97,6 @@ protected:
 protected:
 	virtual void Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) override;
 
-	UFUNCTION(Server, Reliable)
-	void SetSpeedAndTransformOnServer(const FVector TargetLocation, const FRotator& TargetRotation, const FVector& NewVelocity);
+	UFUNCTION(Client, Reliable)
+	void SetControlRotationOnClient(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& LaunchVelocity);
 };

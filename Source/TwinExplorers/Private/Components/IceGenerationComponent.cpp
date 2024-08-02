@@ -51,7 +51,6 @@ void UIceGenerationComponent::TickComponent(float DeltaTime, ELevelTick TickType
 		FCollisionQueryParams Params;
 		Params.AddIgnoredActor(Owner);
 		bool bIsHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, SurfaceTraceChannel, Params);
-		DrawDebugLineTraceSingle(GetWorld(), Start, End, EDrawDebugTrace::ForOneFrame, bIsHit, HitResult, FLinearColor::Green, FLinearColor::Green, 5.f);
 		
 		if(!ForDetectionStaticMeshComp) {
 			UE_LOG(LogTemp, Error, TEXT("Create mesh for detection FAILED!"));

@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -12,83 +10,81 @@ class AMainCharacterBase;
 UCLASS()
 class TWINEXPLORERS_API APortal : public AActor
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 protected:
-	UPROPERTY()
-	USceneComponent* AsRoot;
+    UPROPERTY(EditDefaultsOnly)
+    USceneComponent* AsRoot;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Comp")
-	USceneComponent* Door1Root;
+    UPROPERTY(BlueprintReadOnly, EditAnywhere, Category="Portal Comp")
+    UStaticMeshComponent* DoorMeshComp;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Comp")
-	UStaticMeshComponent* Door1MeshComp;			// 应该是一个Plane	
+    UPROPERTY(BlueprintReadOnly, EditAnywhere, Category="Portal Comp")
+    USceneCaptureComponent2D* DoorCapture;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Comp")
-	USceneCaptureComponent2D* Door1Capture;			// 用来捕获当前门的景像
+    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal Comp")
+    USceneComponent* CameraRoot;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Comp")
-	USceneComponent* CameraRoot1;
+    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal Comp")
+    USceneComponent* PlayerSimulator;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Comp")
-	USceneComponent* PlayerSimulatorDoor1;			// 对于Portal1关于角色相对于Portal2的位置
+    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal Comp")
+    UBoxComponent* PortalBoxComp;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Comp")
-	UBoxComponent* Portal1BoxComp;
+    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Props")
+    UMaterialInterface* Door1MeshMaterial;
 
-protected:
+    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Props")
+    UTextureRenderTarget2D* Door1RenderTarget2D;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 2 Comp")
-	USceneComponent* Door2Root;
+    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 2 Props")
+    UMaterialInterface* Door2MeshMaterial;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 2 Comp")
-	UStaticMeshComponent* Door2MeshComp;			// 应该是一个Plane
+    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 2 Props")
+    UTextureRenderTarget2D* Door2RenderTarget2D;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 2 Comp")
-	USceneComponent* CameraRoot2;
+    UPROPERTY(Replicated, BlueprintReadOnly)
+    APortal* LinkedPortal; // 链接的Portal
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 2 Comp")
-	USceneCaptureComponent2D* Door2Capture;			// 用来捕获当前门的景像
+    UPROPERTY(Replicated)
+    bool bIsTransporting; // 用于跟踪是否正在进行传送
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 2 Comp")
-	USceneComponent* PlayerSimulatorDoor2;			// 对于Portal2关于角色相对于Portal1的位置
-
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 2 Comp")
-	UBoxComponent* Portal2BoxComp;
-
-	UPROPERTY()
-	UPrimitiveComponent* ExitCollider;
+    bool bIsDoor1;
 
 private:
-	UPROPERTY()
-	AMainCharacterBase* LocalCharacter;		// 这个不需要复制，而是运行在本地
-	
+    UPROPERTY()
+    AMainCharacterBase* LocalCharacter; // 这个不需要复制，而是运行在本地
+
 public:
-	// Sets default values for this pawn's properties
-	APortal();
+    // Sets default values for this pawn's properties
+    APortal();
 
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+    virtual void BeginPlay() override;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+public:    
+    virtual void Tick(float DeltaTime) override;
+
+    UFUNCTION(BlueprintCallable)
+    void Init(UMaterialInterface* PortalDoorMaterial, UTextureRenderTarget2D* TextureTarget);
+
+    // 链接到另一个Portal
+    UFUNCTION(Server, Reliable)
+    void ServerLinkPortal(APortal* OtherPortal);
+    void LinkPortal(APortal* OtherPortal);
+
+    UFUNCTION(Server, Reliable)
+    void ServerMarkExit();
+    void MarkExit();
 
 private:
-	void UpdateCaptureCameras();
+    void UpdateCaptureCameras();
 
-	void UpdatePortal(USceneCaptureComponent2D* SceneCapture, const USceneComponent* PlayerSimulator);
-	
-	// 处理传送的函数
-	void TransportInternal(UPrimitiveComponent* Trigger, AActor* OtherActor, UBoxComponent* TargetBoxComponent, const FRotator& TargetRotation);
-	
-	UFUNCTION()
-	void Portal1BoxOverlapBeginEvent(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+    void UpdatePortal(USceneCaptureComponent2D* SceneCapture, const USceneComponent* TargetPlayerSimulator);
+    
+    UFUNCTION()
+    void PortalBoxOverlapBeginEvent(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
-	UFUNCTION()
-	void Portal2BoxOverlapBeginEvent(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	UFUNCTION()
-	void PortalBoxOverlapEndEvent(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+    UFUNCTION()
+    void PortalBoxOverlapEndEvent(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 };
