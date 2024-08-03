@@ -31,6 +31,9 @@ protected:
     UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal Comp")
     UBoxComponent* PortalBoxComp;
 
+    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal Comp")
+    UBoxComponent* OverlapDetectionBox;         // 用来检测是否存在Portal Overlapping的情况
+
     UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Props")
     UMaterialInterface* Door1MeshMaterial;
 

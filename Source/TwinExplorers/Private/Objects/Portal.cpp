@@ -36,6 +36,9 @@ APortal::APortal()
     PortalBoxComp->OnComponentBeginOverlap.AddDynamic(this, &APortal::PortalBoxOverlapBeginEvent);
     PortalBoxComp->OnComponentEndOverlap.AddDynamic(this, &APortal::PortalBoxOverlapEndEvent);
 
+    OverlapDetectionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("OverlapDetectionBox"));
+    OverlapDetectionBox->SetupAttachment(GetRootComponent());
+
     bReplicates = true;
     LinkedPortal = nullptr;
 

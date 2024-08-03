@@ -53,7 +53,6 @@ void UPortalGenerationComponent::Shoot() {
 		if(!CheckRoom(HitResult, NewLocation, NewRotation)) {
 			return;
 		}
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Passed Room Check!");
 		
 		if(!CheckOverlap(NewLocation, NewRotation)) {
 			return;
@@ -68,7 +67,7 @@ void UPortalGenerationComponent::Shoot() {
 	}
 }
 
-bool UPortalGenerationComponent::CheckRoom(const FHitResult& HitResult, FVector& ValidLocation, FRotator& ValidRotation, int RecursionDepth) {
+bool UPortalGenerationComponent::CheckRoom(const FHitResult& HitResult, FVector& ValidLocation, const FRotator& ValidRotation, int RecursionDepth) {
 	constexpr float PortalHeight = 300.f;
 	constexpr float PortalWidth = 170.f;
 	
@@ -117,9 +116,14 @@ bool UPortalGenerationComponent::CheckRoom(const FHitResult& HitResult, FVector&
 	return CheckRoom(HitResult, ValidLocation, 0, Up, Down, Left, Right);
 }
 
-bool UPortalGenerationComponent::CheckOverlap(const FVector& NewLocation, const FRotator& NewRotation) {
-	// TODO: 检测是否存在传送门重叠的情况出现
-	return true;
+bool UPortalGenerationComponent::CheckOverlap(const FVector& NewLocation, const FRotator& NewRotation) const {
+	float BoxHeight = 141.f;
+	float BoxWidth = 90.f;
+	
+	// 检测是否存在传送门重叠的情况出现
+	FHitResult HitResult;
+	const FCollisionShape Box = FCollisionShape::MakeBox(FVector{5 , BoxWidth, BoxHeight });
+	return !GetWorld()->SweepSingleByChannel(HitResult, NewLocation, NewLocation, NewRotation.Quaternion(), PortalOverlapDetectionType, Box);
 }
 
 void UPortalGenerationComponent::SpawnPortalAtLocationAndRotation_Implementation(const FVector& NewLocation,
