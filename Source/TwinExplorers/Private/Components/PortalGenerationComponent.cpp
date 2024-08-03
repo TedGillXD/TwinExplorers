@@ -3,6 +3,7 @@
 
 #include "Components/PortalGenerationComponent.h"
 
+#include "KismetTraceUtils.h"
 #include "Camera/CameraComponent.h"
 #include "Characters/MainCharacterBase.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -52,7 +53,8 @@ void UPortalGenerationComponent::Shoot() {
 		if(!CheckRoom(HitResult, NewLocation, NewRotation)) {
 			return;
 		}
-
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Passed Room Check!");
+		
 		if(!CheckOverlap(NewLocation, NewRotation)) {
 			return;
 		}
@@ -66,14 +68,58 @@ void UPortalGenerationComponent::Shoot() {
 	}
 }
 
-bool UPortalGenerationComponent::CheckRoom(const FHitResult& HitResult, FVector& ValidLocation, FRotator& ValidRotation) {
-	// TODO: 检测目标位置是否上下左右都有足够的空间，如果没有，则找到一个，否则返回false
-	return false;
+bool UPortalGenerationComponent::CheckRoom(const FHitResult& HitResult, FVector& ValidLocation, FRotator& ValidRotation, int RecursionDepth) {
+	constexpr float PortalHeight = 300.f;
+	constexpr float PortalWidth = 170.f;
+	
+	// 计算根据当前面的法线方向的旋转后的上下左右偏移量
+	FQuat PortalQuat = ValidRotation.Quaternion();
+	FVector Up = PortalQuat.RotateVector(FVector(0, 0, PortalHeight * 0.5f));
+	FVector Down = PortalQuat.RotateVector(FVector(0, 0, -PortalHeight * 0.5f));
+	FVector Left = PortalQuat.RotateVector(FVector(0, PortalWidth * 0.5f, 0));
+	FVector Right = PortalQuat.RotateVector(FVector(0, -PortalWidth * 0.5f, 0));
+
+	return CheckRoom(HitResult, ValidLocation, 0, Up, Down, Left, Right);
+}
+
+bool UPortalGenerationComponent::CheckRoom(const FHitResult& HitResult, FVector& ValidLocation,
+	int RecursionDepth, const FVector& Up, const FVector& Down, const FVector& Left, const FVector& Right) {
+
+	if(RecursionDepth >= 10) { return false; }		// 10 = 1 / 0.1(整体 / 每次的偏移量) 这样就能保证在玩家射到最边缘的时候能找到一个最极限的值
+
+	// 检测目标位置是否上下左右都有足够的空间，如果没有，则找到一个，否则返回false
+	FVector DetectionMiddle = ValidLocation + 25 * HitResult.Normal;		// 这个是要检测的中心点
+	FVector DetectionDir = HitResult.Normal * -50.f;		// 检测的方向和距离
+
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(Owner);
+
+	// 检查是否已经全部在范围内
+	FHitResult UpHit, DownHit, LeftHit, RightHit;
+	bool bUpClear = GetWorld()->LineTraceSingleByChannel(UpHit, DetectionMiddle + Up, DetectionMiddle + Up + DetectionDir, SurfaceType, Params);
+	bool bDownClear = GetWorld()->LineTraceSingleByChannel(DownHit, DetectionMiddle + Down, DetectionMiddle + Down + DetectionDir, SurfaceType, Params);
+	bool bLeftClear = GetWorld()->LineTraceSingleByChannel(LeftHit, DetectionMiddle + Left, DetectionMiddle + Left + DetectionDir, SurfaceType, Params);
+	bool bRightClear = GetWorld()->LineTraceSingleByChannel(RightHit, DetectionMiddle + Right, DetectionMiddle + Right + DetectionDir, SurfaceType, Params);
+
+	// 如果本轮检测通过，返回true
+	if(bUpClear && bDownClear && bLeftClear && bRightClear) {
+		return true;
+	}
+	
+	// 找到一个合适的位置
+	FVector Offset = FVector::ZeroVector;
+	if (!bUpClear) { Offset += Down * 0.1f; }  // 如果上方空间不足，向下调整
+	if (!bDownClear) { Offset += Up * 0.1f; }  // 如果下方空间不足，向上调整
+	if (!bLeftClear) { Offset += Right * 0.1f; }  // 如果左方空间不足，向右调整
+	if (!bRightClear) { Offset += Left * 0.1f; }  // 如果右方空间不足，向左调整
+
+	ValidLocation += Offset;
+	return CheckRoom(HitResult, ValidLocation, 0, Up, Down, Left, Right);
 }
 
 bool UPortalGenerationComponent::CheckOverlap(const FVector& NewLocation, const FRotator& NewRotation) {
 	// TODO: 检测是否存在传送门重叠的情况出现
-	return false;
+	return true;
 }
 
 void UPortalGenerationComponent::SpawnPortalAtLocationAndRotation_Implementation(const FVector& NewLocation,

@@ -55,7 +55,8 @@ private:
 	void SpawnPortalAtLocationAndRotation(const FVector& NewLocation, const FRotator& NewRotation);
 
 	// 检查当前的表面是否有足够的空间容纳下这个传送门
-	bool CheckRoom(const FHitResult& HitResult, FVector& ValidLocation, FRotator& ValidRotation);
+	bool CheckRoom(const FHitResult& HitResult, FVector& ValidLocation, FRotator& ValidRotation, int RecursionDepth = 0);
+	bool CheckRoom(const FHitResult& HitResult, FVector& ValidLocation, int RecursionDepth, const FVector& Up, const FVector& Down, const FVector& Left, const FVector& Right);
 	bool CheckOverlap(const FVector& NewLocation, const FRotator& NewRotation);
 };
 
