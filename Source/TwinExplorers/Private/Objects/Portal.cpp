@@ -52,12 +52,12 @@ void APortal::BeginPlay() {
         // 查看当前场景内有多少Portal
         TArray<AActor*> FoundActors;
         UGameplayStatics::GetAllActorsOfClass(GetWorld(), StaticClass(), FoundActors);
-        if(FoundActors.Num() == 1) {            // RenderTarget2D应该延迟初始化
+        if(FoundActors.Num() == 1) {            // TODO: RenderTarget2D应该延迟初始化
             bIsDoor1 = true;
-            Init(Door1MeshMaterial, nullptr);
+            Init(Door1MeshMaterial, Door2RenderTarget2D);
         } else {
             bIsDoor1 = false;
-            Init(Door2MeshMaterial, nullptr);
+            Init(Door2MeshMaterial, Door1RenderTarget2D);
         }
 
         // 获取本地的角色
@@ -89,7 +89,9 @@ void APortal::Tick(float DeltaTime) {
             UGameplayStatics::GetAllActorsOfClass(GetWorld(), APortal::StaticClass(), FoundActors);
             for(AActor* Actor : FoundActors) {
                 if(Actor != this) {
-                    LinkPortal(Cast<APortal>(Actor));       // 绑定传送门
+                    APortal* OtherPortal = Cast<APortal>(Actor);
+                    LinkPortal(OtherPortal);       // 绑定传送门
+                    
                 }
             }
         }
@@ -160,13 +162,6 @@ void APortal::ServerLinkPortal_Implementation(APortal* OtherPortal) {
     if (OtherPortal) {
         LinkedPortal = OtherPortal;
         OtherPortal->LinkedPortal = this;
-
-        // TODO: 要同时Init当前的了OtherPortal
-        if(bIsDoor1) {      // 将RenderTarget延迟到检测到两扇门的时候进行绑定
-            Init(Door1MeshMaterial, Door2RenderTarget2D);
-        } else {
-            Init(Door2MeshMaterial, Door1RenderTarget2D);
-        }
     }
 }
 

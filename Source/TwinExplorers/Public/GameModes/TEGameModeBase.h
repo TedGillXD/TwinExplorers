@@ -25,8 +25,11 @@ public:
 
 	// 当一个新玩家加入的时候就会调用这个函数
 	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
-	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+	
+	// 用来选择PlayerStart
+	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 
+	
 protected:
 	UPROPERTY(BlueprintReadOnly)
 	TArray<ATEPlayerController*> ConnectedControllers;		// 所有连接上来的Controllers
