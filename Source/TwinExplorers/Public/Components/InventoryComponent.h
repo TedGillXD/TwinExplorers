@@ -69,7 +69,13 @@ public:
 	void ChangeInHandItemOnServer(int32 NewIndex);
 	
 	UFUNCTION(BlueprintCallable)
-	void ChangedInHandItem(int32 NewIndex);
+	void ChangeInHandItem(int32 NewIndex);
+
+	UFUNCTION(BlueprintCallable)
+	void NextTool();
+
+	UFUNCTION(BlueprintCallable)
+	void PreviousTool();
 
 	UFUNCTION(BlueprintCallable)
 	const FItem& GetInHandItem();

@@ -86,6 +86,46 @@ void ATEPlayerController::StopJump() {
 	GetCharacter()->StopJumping();
 }
 
+void ATEPlayerController::FirstTool() {
+	if(!GetCharacter()) { return; }
+
+	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
+		CharacterBase->SelectTool(0);
+	}
+}
+
+void ATEPlayerController::SecondTool() {
+	if(!GetCharacter()) { return; }
+
+	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
+		CharacterBase->SelectTool(1);
+	}
+}
+
+void ATEPlayerController::ThirdTool() {
+	if(!GetCharacter()) { return; }
+
+	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
+		CharacterBase->SelectTool(2);
+	}
+}
+
+void ATEPlayerController::NextTool() {
+	if(!GetCharacter()) { return; }
+
+	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
+		CharacterBase->NextTool();
+	}
+}
+
+void ATEPlayerController::PreviousTool() {
+	if(!GetCharacter()) { return; }
+
+	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
+		CharacterBase->PreviousTool();
+	}
+}
+
 void ATEPlayerController::BeginPlay() {
 	Super::BeginPlay();
 
@@ -108,6 +148,13 @@ void ATEPlayerController::SetupInputComponent() {
 		EnhancedInputComponent->BindAction(UseItemButtonReleasedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::UseItemReleased);
 		EnhancedInputComponent->BindAction(CancelUseItemBottomPressedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::CancelUseItemPressed);
 		EnhancedInputComponent->BindAction(CancelUseItemBottomReleasedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::CancelUseItemReleased);
+
+		// 切换工具的事件
+		EnhancedInputComponent->BindAction(FirstToolAction, ETriggerEvent::Triggered, this, &ATEPlayerController::FirstTool);
+		EnhancedInputComponent->BindAction(SecondToolAction, ETriggerEvent::Triggered, this, &ATEPlayerController::SecondTool);
+		EnhancedInputComponent->BindAction(ThirdToolAction, ETriggerEvent::Triggered, this, &ATEPlayerController::ThirdTool);
+		EnhancedInputComponent->BindAction(NextToolAction, ETriggerEvent::Triggered, this, &ATEPlayerController::NextTool);
+		EnhancedInputComponent->BindAction(PreviousToolAction, ETriggerEvent::Triggered, this, &ATEPlayerController::PreviousTool);
 	}
 }
 

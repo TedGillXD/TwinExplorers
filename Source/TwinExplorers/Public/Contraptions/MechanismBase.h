@@ -39,9 +39,11 @@ protected:
 	UFUNCTION()
 	void SwitchOff();
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintNativeEvent)
 	void Activate();
+	virtual void Activate_Implementation();
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintNativeEvent)
 	void Deactivate();
+	virtual void Deactivate_Implementation();
 };

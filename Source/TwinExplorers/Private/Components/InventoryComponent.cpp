@@ -113,10 +113,10 @@ bool UInventoryComponent::IsItemValid(const FItem& Item) {
 }
 
 void UInventoryComponent::ChangeInHandItemOnServer_Implementation(int32 NewIndex) {
-	ChangedInHandItem(NewIndex);
+	ChangeInHandItem(NewIndex);
 }
 
-void UInventoryComponent::ChangedInHandItem(int32 NewIndex) {
+void UInventoryComponent::ChangeInHandItem(int32 NewIndex) {
 	if(NewIndex < 0 || NewIndex >= Tools.Num()) { return; }
 
 	if(GetOwnerRole() == ROLE_Authority) {
@@ -125,6 +125,14 @@ void UInventoryComponent::ChangedInHandItem(int32 NewIndex) {
 	} else {		// 属于客户端，通过RPC在服务器上更新
 		ChangeInHandItemOnServer(NewIndex);
 	}
+}
+
+void UInventoryComponent::NextTool() {
+	ChangeInHandItem((SelectedToolIndex + 1) % Tools.Num());
+}
+
+void UInventoryComponent::PreviousTool() {
+	ChangeInHandItem((SelectedToolIndex + Tools.Num() - 1) % Tools.Num());
 }
 
 const FItem& UInventoryComponent::GetInHandItem() {

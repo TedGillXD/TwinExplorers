@@ -117,6 +117,18 @@ void AMainCharacterBase::CancelUseItemReleased() {
 	}
 }
 
+void AMainCharacterBase::SelectTool(int32 ToolIndex) const {
+	InventoryComponent->ChangeInHandItem(ToolIndex);
+}
+
+void AMainCharacterBase::NextTool() const {
+	InventoryComponent->NextTool();
+}
+
+void AMainCharacterBase::PreviousTool() const {
+	InventoryComponent->PreviousTool();
+}
+
 void AMainCharacterBase::OnRep_CameraPitch() const {
 	const FRotator Rotator = FirstPersonCamera->GetComponentRotation();
 	const FRotator NewRotator{CameraPitch, Rotator.Yaw, Rotator.Roll};

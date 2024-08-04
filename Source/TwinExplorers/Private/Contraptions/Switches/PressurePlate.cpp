@@ -48,20 +48,24 @@ APressurePlate::APressurePlate() {
 void APressurePlate::BeginPlay() {
 	Super::BeginPlay();
 
-	InitialZ = PlateComp->GetComponentLocation().Z;
+	if(HasAuthority()) {
+		InitialZ = PlateComp->GetComponentLocation().Z;
+	}
 }
 
 void APressurePlate::Tick(float DeltaSeconds) {
 	Super::Tick(DeltaSeconds);
-	
-	const float CurrentZ = PlateComp->GetComponentLocation().Z;
-    if (InitialZ - CurrentZ >= TriggeredOffset && !bIsOn) {
-        bIsOn = true;
-        OnSwitchActivated.Broadcast();
-    } else if (InitialZ - CurrentZ < TriggeredOffset && bIsOn) {
-        bIsOn = false;
-        OnSwitchDeactivated.Broadcast();
-    }
+
+	if(HasAuthority()) {
+		const float CurrentZ = PlateComp->GetComponentLocation().Z;
+		if (InitialZ - CurrentZ >= TriggeredOffset && !bIsOn) {
+			bIsOn = true;
+			OnSwitchActivated.Broadcast();
+		} else if (InitialZ - CurrentZ < TriggeredOffset && bIsOn) {
+			bIsOn = false;
+			OnSwitchDeactivated.Broadcast();
+		}
+	}
 }
 
 bool APressurePlate::IsPlateStable() const {

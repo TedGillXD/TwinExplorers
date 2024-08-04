@@ -38,3 +38,11 @@ void AMechanismBase::SwitchOn() {
 void AMechanismBase::SwitchOff() {
 	Deactivate();		// 只要有其中一个开关关闭了，整个机器就会切换到关闭状态
 }
+
+void AMechanismBase::Activate_Implementation() {
+	
+}
+
+void AMechanismBase::Deactivate_Implementation() {
+	
+}

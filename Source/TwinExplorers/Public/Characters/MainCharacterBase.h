@@ -80,6 +80,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void CancelUseItemReleased();
 
+	void SelectTool(int32 ToolIndex) const;
+	void NextTool() const;
+	void PreviousTool() const;
+
 protected:
 	UFUNCTION()
 	void OnRep_CameraPitch() const;

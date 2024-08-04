@@ -51,16 +51,38 @@ public:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
 	UInputAction* CancelUseItemBottomReleasedAction;	// 取消使用物品的Action松开事件
 
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
+	UInputAction* FirstToolAction;		// 第一个工具的事件
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
+	UInputAction* SecondToolAction;		// 第二个工具的事件
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
+	UInputAction* ThirdToolAction;		// 第三个工具的事件
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
+	UInputAction* NextToolAction;		// 下一个工具的事件
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
+	UInputAction* PreviousToolAction;		// 上一个工具的事件
+
 public:
 	void UseItemPressed();
 	void UseItemReleased();
 	void CancelUseItemPressed();
 	void CancelUseItemReleased();
+	
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Interact();
 	void StartJump();
 	void StopJump();
+
+	void FirstTool();
+	void SecondTool();
+	void ThirdTool();
+	void NextTool();
+	void PreviousTool();
 
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
