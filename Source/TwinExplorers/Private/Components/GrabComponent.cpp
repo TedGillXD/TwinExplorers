@@ -72,8 +72,6 @@ void UGrabComponent::GrabItem() {
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(Owner);
 	bool bIsHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_PhysicsBody, Params);
-	// 0. for debug
-	// DrawDebugLineTraceSingle(GetWorld(), Start, End, EDrawDebugTrace::ForDuration, true, HitResult, FLinearColor::Red, FLinearColor::Green, 5.f);
 	
 	if(GetOwnerRole() == ROLE_Authority) {
 		GrabItemInternal(bIsHit, HitResult);
