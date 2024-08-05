@@ -1,9 +1,12 @@
 #include "Objects/Portal.h"
+
+#include "DatasmithDefinitions.h"
 #include "Camera/CameraComponent.h"
 #include "Characters/MainCharacterBase.h"
 #include "Components/BoxComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Interfaces/TransportableInterface.h"
+#include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
@@ -43,6 +46,7 @@ APortal::APortal()
     LinkedPortal = nullptr;
 
     bIsDoor1 = false;
+    bIsEnabled = false;
 }
 
 void APortal::BeginPlay() {
@@ -52,11 +56,13 @@ void APortal::BeginPlay() {
         // 查看当前场景内有多少Portal
         TArray<AActor*> FoundActors;
         UGameplayStatics::GetAllActorsOfClass(GetWorld(), StaticClass(), FoundActors);
-        if(FoundActors.Num() == 1) {            // TODO: RenderTarget2D应该延迟初始化
+        if(FoundActors.Num() == 1) {            
             bIsDoor1 = true;
+            DisableSceneCapture();      // RenderTarget2D应该延迟初始化
             Init(Door1MeshMaterial, Door2RenderTarget2D);
         } else {
             bIsDoor1 = false;
+            DisableSceneCapture();      // RenderTarget2D应该延迟初始化
             Init(Door2MeshMaterial, Door1RenderTarget2D);
         }
 
@@ -65,6 +71,7 @@ void APortal::BeginPlay() {
         for (int32 i = 0; i < NumLocalPlayer; ++i) {
             APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), i);
             if (PlayerController && PlayerController->IsLocalPlayerController()) {
+                LocalPlayerController = PlayerController;
                 AMainCharacterBase* Character = Cast<AMainCharacterBase>(PlayerController->GetPawn());
                 if(Character && Character->GetLocalRole() == ROLE_AutonomousProxy) {
                     LocalCharacter = Character;
@@ -91,7 +98,6 @@ void APortal::Tick(float DeltaTime) {
                 if(Actor != this) {
                     APortal* OtherPortal = Cast<APortal>(Actor);
                     LinkPortal(OtherPortal);       // 绑定传送门
-                    
                 }
             }
         }
@@ -99,7 +105,18 @@ void APortal::Tick(float DeltaTime) {
 
     // 更新是放在本地的，并且是产生联系之后才会更新
     if(!HasAuthority()) {
+        // for debug
+        GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Red, GetName() + " " + (bIsEnabled ? "True" : "False"));
+        
+        // 在链接了的情况下进行更新
         if(LocalCharacter && LinkedPortal) {
+            // 根据可见性来动态开启和关闭Portal，当能看到Portal1的时候，Portal2需要进行采集然后渲染到Portal1
+            if(IsPortalOnScreen(LocalCharacter->GetCameraComponent())) {
+                LinkedPortal->EnableSceneCapture();
+            } else {
+                LinkedPortal->DisableSceneCapture();
+            }
+            
             UpdateCaptureCameras();
         }
     }
@@ -118,12 +135,65 @@ void APortal::MarkExit() {
     }
 }
 
+void APortal::EnableSceneCapture() {
+    if(bIsEnabled) { return; }
+    DoorCapture->SetComponentTickEnabled(true);
+    DoorCapture->SetVisibility(true);
+    DoorCapture->bCaptureEveryFrame = true;
+    DoorCapture->bCaptureOnMovement = true;
+    DoorCapture->bAlwaysPersistRenderingState = true;
+    DoorCapture->CaptureScene(); // 手动捕捉一次
+    bIsEnabled = true;
+}
+
+void APortal::DisableSceneCapture() {
+    if(!bIsEnabled) { return; }
+    DoorCapture->SetComponentTickEnabled(false);
+    DoorCapture->SetVisibility(false);
+    DoorCapture->bCaptureEveryFrame = false;
+    DoorCapture->bCaptureOnMovement = false;
+    DoorCapture->bAlwaysPersistRenderingState = false;
+    bIsEnabled = false;
+}
+
+bool APortal::IsPortalOnScreen(const UCameraComponent* CameraComponent) const {
+    // 获取物体位置
+    FVector ActorLocation = this->GetActorLocation();
+
+    // 将世界坐标转换为屏幕坐标
+    FVector2D ScreenLocation;
+
+    // 首先通过看看当前Portal的位置是否能映射到屏幕上判断角色是否是正面面对着Portal
+    if (LocalPlayerController->ProjectWorldLocationToScreen(ActorLocation, ScreenLocation)) {
+        // 如果在正面，执行线性追踪，检查物体是否被遮挡
+        FVector CameraLocation = CameraComponent->GetComponentLocation();
+        FHitResult HitResult;
+        FCollisionQueryParams Params;
+        Params.AddIgnoredActor(this);  // 忽略传送门自身
+        Params.AddIgnoredActor(LocalPlayerController->GetPawn());  // 忽略玩家自身
+
+        bool bHit = GetWorld()->LineTraceSingleByChannel(
+            HitResult,
+            CameraLocation,
+            ActorLocation,
+            ECC_Visibility,
+            Params
+        );
+
+        // 如果线性追踪没有命中或者命中的是该物体本身，说明物体在视锥内且没有被遮挡
+        return !bHit || HitResult.GetActor() == this;
+    }
+    return false;
+}
+
 void APortal::UpdateCaptureCameras() {
     UCameraComponent* CameraComp = LocalCharacter->GetCameraComponent();
     PlayerSimulator->SetWorldLocation(CameraComp->GetComponentLocation());
 
-    // 处理Portal
-    UpdatePortal(DoorCapture, LinkedPortal->PlayerSimulator);
+    // 处理Portal，只有在Enable的时候才会进行处理
+    if(bIsEnabled) {
+        UpdatePortal(DoorCapture, LinkedPortal->PlayerSimulator);
+    }
 }
 
 void APortal::UpdatePortal(USceneCaptureComponent2D* SceneCapture, const USceneComponent* TargetPlayerSimulator) {
@@ -171,6 +241,7 @@ void APortal::LinkPortal(APortal* OtherPortal) {
     } else {
         // 客户端请求服务器进行链接
         ServerLinkPortal(OtherPortal);
+        EnableSceneCapture();
     }
 }
 

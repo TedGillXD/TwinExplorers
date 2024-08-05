@@ -128,10 +128,12 @@ void UInventoryComponent::ChangeInHandItem(int32 NewIndex) {
 }
 
 void UInventoryComponent::NextTool() {
+	if(Tools.IsEmpty()) { return; }
 	ChangeInHandItem((SelectedToolIndex + 1) % Tools.Num());
 }
 
 void UInventoryComponent::PreviousTool() {
+	if(Tools.IsEmpty()) { return; }
 	ChangeInHandItem((SelectedToolIndex + Tools.Num() - 1) % Tools.Num());
 }
 

@@ -57,9 +57,7 @@ void AMonopole::ApplyInfluence() {
 		// 力度计算公式： F_Final = F_Max * [(d_Max - d_i) / d_Max]^2		其中d_Max是磁铁的最大影响范围，d_i是其他磁铁到本磁铁的距离
 		float ScaledForce = MaxForce * FMath::Pow((MaxDistance - Distance) / MaxDistance, 2.f);
 		AttractDir = ScaledForce * AttractDir;		// 计算出的最终Force
-
-		GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Red, FString::SanitizeFloat(ScaledForce));
-
+		
 		// 应用这个力
 		if(ForeignPole->PoleMeshComp->IsSimulatingPhysics()) {
 			if(ForeignPole->MagneticPole == MagneticPole) {	// 排斥

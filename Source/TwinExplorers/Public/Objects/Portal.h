@@ -4,6 +4,7 @@
 #include "GameFramework/Pawn.h"
 #include "Portal.generated.h"
 
+class UCameraComponent;
 class UBoxComponent;
 class AMainCharacterBase;
 
@@ -54,9 +55,14 @@ protected:
 
     bool bIsDoor1;
 
+    bool bIsEnabled;
+
 private:
     UPROPERTY()
     AMainCharacterBase* LocalCharacter; // 这个不需要复制，而是运行在本地
+
+    UPROPERTY()
+    APlayerController* LocalPlayerController;       // 这个不需要复制，而是运行在本地
 
 public:
     // Sets default values for this pawn's properties
@@ -79,6 +85,15 @@ public:
     UFUNCTION(Server, Reliable)
     void ServerMarkExit();
     void MarkExit();
+
+    UFUNCTION(BlueprintCallable)
+    void EnableSceneCapture();
+
+    UFUNCTION(BlueprintCallable)
+    void DisableSceneCapture();
+
+    UFUNCTION(BlueprintPure)
+    bool IsPortalOnScreen(const UCameraComponent* CameraComponent) const;
 
 private:
     void UpdateCaptureCameras();

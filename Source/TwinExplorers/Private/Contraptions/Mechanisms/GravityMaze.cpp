@@ -142,8 +142,9 @@ void AGravityMaze::OnRep_Sphere() {
 }
 
 void AGravityMaze::UpdateAngularVelocityTarget() const {
-	PhysicsConstraintComp->SetAngularVelocityTarget(CurrentTargetVelocity);
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Angular velocity updated!");
 	MazeFloorComp->WakeRigidBody();
+	PhysicsConstraintComp->SetAngularVelocityTarget(CurrentTargetVelocity);
 }
 
 void AGravityMaze::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
