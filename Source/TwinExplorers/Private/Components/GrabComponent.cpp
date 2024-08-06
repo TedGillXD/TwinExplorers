@@ -104,8 +104,8 @@ void UGrabComponent::OnRep_HeldComponent() {
 		return;
 	}
 
-	// 当物体被拖拽的时候就将客户端的物体查询设置为NoCollision
-	HeldComponent->SetSimulatePhysics(false);
+	// 当物体被拖拽的时候就将客户端的物理模拟关掉，防止抖动
+	// HeldComponent->SetSimulatePhysics(false);
 }
 
 void UGrabComponent::OnRep_GrabItemMeshComp() const {
@@ -130,7 +130,7 @@ void UGrabComponent::AddRequireComponentsOnServer_Implementation() {
 			return;
 		}
 
-		GrabItemMeshComp->bHiddenInGame = true;
+		GrabItemMeshComp->bHiddenInGame = false;
 		GrabItemMeshComp->SetCollisionResponseToAllChannels(ECR_Ignore);
 		if(VisibleMesh) {
 			GrabItemMeshComp->SetStaticMesh(VisibleMesh);

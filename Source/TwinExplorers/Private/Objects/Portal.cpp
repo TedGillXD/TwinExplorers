@@ -168,7 +168,7 @@ bool APortal::IsPortalOnScreen(const UCameraComponent* CameraComponent) const {
         // 如果在正面，执行线性追踪，检查物体是否被遮挡
         FVector CameraLocation = CameraComponent->GetComponentLocation();
         FHitResult HitResult;
-        FCollisionQueryParams Params;
+        FCollisionQueryParams Params; 
         Params.AddIgnoredActor(this);  // 忽略传送门自身
         Params.AddIgnoredActor(LocalPlayerController->GetPawn());  // 忽略玩家自身
 
