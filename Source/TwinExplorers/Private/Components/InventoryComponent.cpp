@@ -160,4 +160,5 @@ void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 
 	DOREPLIFETIME(UInventoryComponent, Tools);
 	DOREPLIFETIME(UInventoryComponent, Props);
+	DOREPLIFETIME(UInventoryComponent, SelectedToolIndex);
 }

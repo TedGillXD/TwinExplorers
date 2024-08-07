@@ -6,7 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "PortalGenerationComponent.generated.h"
 
-class APortal;
+class APortalV2;
 class AMainCharacterBase;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -16,7 +16,7 @@ class TWINEXPLORERS_API UPortalGenerationComponent : public UActorComponent
 
 protected:
 	UPROPERTY(BlueprintReadWrite, Category="PortalGen Props", Replicated)
-	APortal* PortalRef;			// 当前Portal的引用
+	APortalV2* PortalRef;			// 当前Portal的引用
 	
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="PortalGen Props")
 	TEnumAsByte<ECollisionChannel> SurfaceType;		// 用来检测能生成Portal的表面类型
@@ -25,7 +25,7 @@ protected:
 	TEnumAsByte<ECollisionChannel> PortalOverlapDetectionType;			// 用来检测传送门重叠的类型
 	
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="PortalGen Props")
-	TSubclassOf<APortal> PortalClass;		// 传送门类
+	TSubclassOf<APortalV2> PortalClass;		// 传送门类
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="PortalGen Props")
 	float DetectionDistance;			// 检测距离

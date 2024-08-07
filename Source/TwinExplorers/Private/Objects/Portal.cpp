@@ -5,6 +5,7 @@
 #include "Characters/MainCharacterBase.h"
 #include "Components/BoxComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
+#include "Engine/TextureRenderTarget2D.h"
 #include "Interfaces/TransportableInterface.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
@@ -24,15 +25,8 @@ APortal::APortal()
     DoorMeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DoorMeshComp"));
     DoorMeshComp->SetupAttachment(GetRootComponent());
 
-    CameraRoot = CreateDefaultSubobject<USceneComponent>(TEXT("CameraRoot"));
-    CameraRoot->SetupAttachment(GetRootComponent());
-    CameraRoot->SetRelativeRotation({0.0, 180.0, 0.0});
-
     DoorCapture = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("DoorCapture"));
-    DoorCapture->SetupAttachment(CameraRoot);
-
-    PlayerSimulator = CreateDefaultSubobject<USceneComponent>(TEXT("PlayerSimulator"));
-    PlayerSimulator->SetupAttachment(GetRootComponent());
+    DoorCapture->SetupAttachment(GetRootComponent());
 
     PortalBoxComp = CreateDefaultSubobject<UBoxComponent>(TEXT("PortalBox"));
     PortalBoxComp->SetupAttachment(GetRootComponent());
@@ -46,24 +40,31 @@ APortal::APortal()
     LinkedPortal = nullptr;
 
     bIsDoor1 = false;
-    bIsEnabled = false;
+    bIsEnabled = true;
 }
 
 void APortal::BeginPlay() {
     Super::BeginPlay();
     
     if(!HasAuthority()) {
+        // 初始化，包括创建RenderTexture和设置Material中的参数
+        this->SetTickGroup(TG_PostUpdateWork);
+        DoorMeshComp->SetMaterial(0, DoorMeshMaterial);
+        UMaterialInstanceDynamic* DynamicMaterialInstance = UMaterialInstanceDynamic::Create(DoorMeshMaterial, this);
+        DoorRenderTarget2D = CreateRenderTarget2D();
+        DynamicMaterialInstance->SetTextureParameterValue(FName("RenderTexture"), DoorRenderTarget2D);
+        
         // 查看当前场景内有多少Portal
         TArray<AActor*> FoundActors;
         UGameplayStatics::GetAllActorsOfClass(GetWorld(), StaticClass(), FoundActors);
         if(FoundActors.Num() == 1) {            
             bIsDoor1 = true;
-            DisableSceneCapture();      // RenderTarget2D应该延迟初始化
-            Init(Door1MeshMaterial, Door2RenderTarget2D);
+            // DisableSceneCapture();
+            DynamicMaterialInstance->SetVectorParameterValue(FName("RingColor"), FVector{ 0.224076, 0.240521, 1.0 });
         } else {
             bIsDoor1 = false;
-            DisableSceneCapture();      // RenderTarget2D应该延迟初始化
-            Init(Door2MeshMaterial, Door1RenderTarget2D);
+            // DisableSceneCapture();
+            DynamicMaterialInstance->SetVectorParameterValue(FName("RingColor"), FVector{ 1.0, 0.65199, 0.183289 });
         }
 
         // 获取本地的角色
@@ -106,25 +107,45 @@ void APortal::Tick(float DeltaTime) {
     // 更新是放在本地的，并且是产生联系之后才会更新
     if(!HasAuthority()) {
         // for debug
-        GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Red, GetName() + " " + (bIsEnabled ? "True" : "False"));
+        GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Red, GetName() + " " + (IsSceneCaptureActive(DoorCapture) ? "True" : "False"));
         
         // 在链接了的情况下进行更新
         if(LocalCharacter && LinkedPortal) {
-            // 根据可见性来动态开启和关闭Portal，当能看到Portal1的时候，Portal2需要进行采集然后渲染到Portal1
-            if(IsPortalOnScreen(LocalCharacter->GetCameraComponent())) {
-                LinkedPortal->EnableSceneCapture();
-            } else {
-                LinkedPortal->DisableSceneCapture();
+            if(!bIsInit) {
+                LinkedPortal->DoorCapture->TextureTarget = DoorRenderTarget2D;
+                bIsInit = true;
             }
             
+            // // 根据可见性来动态开启和关闭Portal，当能看到Portal1的时候，Portal2需要进行采集然后渲染到Portal1
+            // if(IsPortalOnScreen(LocalCharacter->GetCameraComponent())) {
+            //     LinkedPortal->EnableSceneCapture();
+            // } else {
+            //     LinkedPortal->DisableSceneCapture();
+            // }
+            //
             UpdateCaptureCameras();
         }
     }
 }
 
-void APortal::Init(UMaterialInterface* PortalDoorMaterial, UTextureRenderTarget2D* TextureTarget) {
-    DoorMeshComp->SetMaterial(0, PortalDoorMaterial);
-    DoorCapture->TextureTarget = TextureTarget;
+bool APortal::IsSceneCaptureActive(USceneCaptureComponent2D* SceneCapture)
+{
+    if (!SceneCapture) {
+        return false;
+    }
+
+    // 检查是否设置了 TextureTarget
+    if (!SceneCapture->TextureTarget) {
+        return false;
+    }
+
+    // 检查是否启用了每帧捕捉或移动捕捉
+    if (SceneCapture->bCaptureEveryFrame || SceneCapture->bCaptureOnMovement) {
+        return true;
+    }
+
+    // 如果不满足上述条件，可以通过其他逻辑来判断，例如手动捕捉标志等
+    return false;
 }
 
 void APortal::MarkExit() {
@@ -188,22 +209,38 @@ bool APortal::IsPortalOnScreen(const UCameraComponent* CameraComponent) const {
 
 void APortal::UpdateCaptureCameras() {
     UCameraComponent* CameraComp = LocalCharacter->GetCameraComponent();
-    PlayerSimulator->SetWorldLocation(CameraComp->GetComponentLocation());
 
     // 处理Portal，只有在Enable的时候才会进行处理
     if(bIsEnabled) {
-        UpdatePortal(DoorCapture, LinkedPortal->PlayerSimulator);
+        UpdatePortal(CameraComp);
     }
 }
 
-void APortal::UpdatePortal(USceneCaptureComponent2D* SceneCapture, const USceneComponent* TargetPlayerSimulator) {
-    SceneCapture->SetRelativeLocation(TargetPlayerSimulator->GetRelativeLocation());
-    FRotator DoorRotator = UKismetMathLibrary::FindLookAtRotation(SceneCapture->GetComponentLocation(), SceneCapture->GetAttachParent()->GetComponentLocation());
-    SceneCapture->SetWorldRotation(DoorRotator);
+void APortal::UpdatePortal(UCameraComponent* CameraComp) {
+    // 计算Location
+    FTransform Transform = GetActorTransform();
+    FTransform TargetTransform;
+    TargetTransform.SetLocation(Transform.GetLocation());
+    TargetTransform.SetRotation(Transform.GetRotation());
+    TargetTransform.SetScale3D(FVector{ Transform.GetScale3D().X * -1.f, Transform.GetScale3D().Y * -1.f, Transform.GetScale3D().Z });
+    FVector FinalPosition = UKismetMathLibrary::TransformLocation(LinkedPortal->GetActorTransform(), UKismetMathLibrary::InverseTransformLocation(TargetTransform, CameraComp->GetComponentLocation()));
 
-    FVector Location = SceneCapture->GetRelativeLocation();
-    float Degree = FMath::RadiansToDegrees(FMath::Atan(300.f / FMath::Max(Location.Size(), 1.f)));
-    SceneCapture->FOVAngle = FMath::Clamp(Degree, 5.f, 180.f);
+    // 计算Rotation
+    FVector X, Y, Z;
+    UKismetMathLibrary::BreakRotIntoAxes(CameraComp->GetComponentRotation(), X, Y, Z);
+    FRotator FinalRotation = UKismetMathLibrary::MakeRotationFromAxes(
+        CalculateRotationAxes(X, GetActorTransform()),
+        CalculateRotationAxes(Y, GetActorTransform()),
+        CalculateRotationAxes(Z, GetActorTransform())
+    );
+
+    LinkedPortal->DoorCapture->SetWorldLocationAndRotation(FinalPosition, FinalRotation);
+}
+
+FVector APortal::CalculateRotationAxes(const FVector& Axes, const FTransform& ActorTransform) {
+    FVector InversedDir = UKismetMathLibrary::InverseTransformDirection(ActorTransform, Axes);
+    const FVector FinalDir = UKismetMathLibrary::MirrorVectorByNormal(UKismetMathLibrary::MirrorVectorByNormal(Axes, FVector{ 1.0, 0.0, 0.0 }), FVector{ 0.0, 1.0, 0.0 });
+    return UKismetMathLibrary::TransformDirection(LinkedPortal->GetActorTransform(), FinalDir);
 }
 
 void APortal::PortalBoxOverlapBeginEvent(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
@@ -219,13 +256,29 @@ void APortal::PortalBoxOverlapBeginEvent(UPrimitiveComponent* OverlappedComponen
         // FRotator TargetRotation = RotatedVector.Rotation();
         
         if(!OtherActor->Implements<UTransportableInterface>()) { return; }
-        ITransportableInterface::Execute_Transport(OtherActor, TargetLocation, LinkedPortal->PortalBoxComp->GetForwardVector().Rotation());
+        // ITransportableInterface::Execute_Transport(OtherActor, TargetLocation, LinkedPortal->PortalBoxComp->GetForwardVector().Rotation());
         // ITransportableInterface::Execute_Transport(OtherActor, TargetLocation, TargetRotation);
     }
 }
 
 void APortal::PortalBoxOverlapEndEvent(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex) {
     bIsTransporting = false;
+}
+
+UTextureRenderTarget2D* APortal::CreateRenderTarget2D() {
+    if(!GEngine) { return nullptr; }
+    FVector2D Size;
+    GEngine->GameViewport->GetViewportSize(Size);
+    
+    UTextureRenderTarget2D* RenderTarget = NewObject<UTextureRenderTarget2D>(GetTransientPackage(), UTextureRenderTarget2D::StaticClass());
+    if(RenderTarget) {
+        RenderTarget->InitAutoFormat(Size.X, Size.Y);
+        RenderTarget->RenderTargetFormat = RTF_RGBA16f;
+
+        return RenderTarget;
+    }
+
+    return nullptr;
 }
 
 void APortal::ServerLinkPortal_Implementation(APortal* OtherPortal) {

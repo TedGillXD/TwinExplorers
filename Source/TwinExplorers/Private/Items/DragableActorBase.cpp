@@ -34,7 +34,13 @@ void ADragableActorBase::OnDrop_Implementation() {
 	// do nothing
 }
 
-void ADragableActorBase::Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) {
+void ADragableActorBase::Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation,
+	const FVector& TargetVelocity) {
+	
 	SetActorLocationAndRotation(TargetLocation, TargetRotation);
+}
+
+FVector ADragableActorBase::GetOriginalVelocity_Implementation() {
+	return GetVelocity();
 }
 

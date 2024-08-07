@@ -16,6 +16,9 @@ class TWINEXPLORERS_API AIcePillar : public AActor, public IInteractableInterfac
 
 protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	USceneComponent* AsRoot;
+	
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	UStaticMeshComponent* PillarMeshComp;
 	
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="IcePillar Props")

@@ -143,7 +143,7 @@ void AMainCharacterBase::InHandItemChanged(int32 NewIndex, const FItem& Item) {
 	}
 }
 
-void AMainCharacterBase::Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) {
+void AMainCharacterBase::Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& TargetVelocity) {
 	// 这个函数默认执行在服务器
 	float Speed = GetVelocity().Length();
 	SetActorLocationAndRotation(TargetLocation, { 0.0, TargetRotation.Yaw, 0.0 });
@@ -153,10 +153,14 @@ void AMainCharacterBase::Transport_Implementation(const FVector& TargetLocation,
 
 	// 速度要在服务端设置
 	GetMovementComponent()->Velocity = Speed * GetActorForwardVector();
-	SetControlRotationOnClient(TargetLocation, TargetRotation, Speed * GetActorForwardVector());
+	SetControlRotationOnClient(TargetLocation, TargetRotation);
 }
 
-void AMainCharacterBase::SetControlRotationOnClient_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& LaunchVelocity) {
+FVector AMainCharacterBase::GetOriginalVelocity_Implementation() {
+	return GetVelocity();
+}
+
+void AMainCharacterBase::SetControlRotationOnClient_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) {
 	SetActorLocationAndRotation(TargetLocation, { 0.0, TargetRotation.Yaw, 0.0 });
 	if(GetController()) {		// 在客户端中设置这个ControlRotation才能生效，但是需要在服务器上做一次来保证得到正确的速度方向
 		GetController()->SetControlRotation(TargetRotation);

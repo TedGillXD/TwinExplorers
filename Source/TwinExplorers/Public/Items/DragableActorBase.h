@@ -28,5 +28,6 @@ public:
 	virtual void OnGrab_Implementation() override;
 	virtual void OnDrop_Implementation() override;
 
-	virtual void Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) override;
+	virtual void Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& TargetVelocity) override;
+	virtual FVector GetOriginalVelocity_Implementation() override;
 };

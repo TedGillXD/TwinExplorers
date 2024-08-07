@@ -3,12 +3,11 @@
 
 #include "Components/PortalGenerationComponent.h"
 
-#include "KismetTraceUtils.h"
 #include "Camera/CameraComponent.h"
 #include "Characters/MainCharacterBase.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
-#include "Objects/Portal.h"
+#include "Objects/PortalV2.h"
 
 // Sets default values for this component's properties
 UPortalGenerationComponent::UPortalGenerationComponent()
@@ -134,7 +133,7 @@ void UPortalGenerationComponent::SpawnPortalAtLocationAndRotation_Implementation
 	Transform.SetLocation(NewLocation);
 	Transform.SetRotation(NewRotation.Quaternion());
 	Transform.SetScale3D({1.0, 1.0, 1.0});
-	PortalRef = GetWorld()->SpawnActorDeferred<APortal>(PortalClass, Transform, Owner, Owner, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	PortalRef = GetWorld()->SpawnActorDeferred<APortalV2>(PortalClass, Transform, Owner, Owner, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	PortalRef->FinishSpawning(Transform);
 	bIsGenerating = false;
 }

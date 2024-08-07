@@ -24,28 +24,16 @@ protected:
     USceneCaptureComponent2D* DoorCapture;
 
     UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal Comp")
-    USceneComponent* CameraRoot;
-
-    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal Comp")
-    USceneComponent* PlayerSimulator;
-
-    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal Comp")
     UBoxComponent* PortalBoxComp;
 
     UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal Comp")
     UBoxComponent* OverlapDetectionBox;         // 用来检测是否存在Portal Overlapping的情况
 
-    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Props")
-    UMaterialInterface* Door1MeshMaterial;
+    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal Props")
+    UMaterialInterface* DoorMeshMaterial;
 
-    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 1 Props")
-    UTextureRenderTarget2D* Door1RenderTarget2D;
-
-    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 2 Props")
-    UMaterialInterface* Door2MeshMaterial;
-
-    UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Portal 2 Props")
-    UTextureRenderTarget2D* Door2RenderTarget2D;
+    UPROPERTY(BlueprintReadOnly, Category="Portal Props")
+    UTextureRenderTarget2D* DoorRenderTarget2D;
 
     UPROPERTY(Replicated, BlueprintReadOnly)
     APortal* LinkedPortal; // 链接的Portal
@@ -56,6 +44,8 @@ protected:
     bool bIsDoor1;
 
     bool bIsEnabled;
+
+    bool bIsInit = false;
 
 private:
     UPROPERTY()
@@ -74,8 +64,7 @@ protected:
 public:    
     virtual void Tick(float DeltaTime) override;
 
-    UFUNCTION(BlueprintCallable)
-    void Init(UMaterialInterface* PortalDoorMaterial, UTextureRenderTarget2D* TextureTarget);
+    bool IsSceneCaptureActive(USceneCaptureComponent2D* SceneCapture);
 
     // 链接到另一个Portal
     UFUNCTION(Server, Reliable)
@@ -98,11 +87,15 @@ public:
 private:
     void UpdateCaptureCameras();
 
-    void UpdatePortal(USceneCaptureComponent2D* SceneCapture, const USceneComponent* TargetPlayerSimulator);
+    void UpdatePortal(UCameraComponent* CameraComp);
+
+    FVector CalculateRotationAxes(const FVector& Axes, const FTransform& ActorTransform);
     
     UFUNCTION()
     void PortalBoxOverlapBeginEvent(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
     UFUNCTION()
     void PortalBoxOverlapEndEvent(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+    UTextureRenderTarget2D* CreateRenderTarget2D();
 };

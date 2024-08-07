@@ -99,8 +99,10 @@ protected:
 	void InHandItemChanged(int32 NewIndex, const FItem& Item);
 
 protected:
-	virtual void Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) override;
+	virtual void Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& TargetVelocity) override;
 
+	virtual FVector GetOriginalVelocity_Implementation() override;
+	
 	UFUNCTION(Client, Reliable)
-	void SetControlRotationOnClient(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& LaunchVelocity);
+	void SetControlRotationOnClient(const FVector& TargetLocation, const FRotator& TargetRotation);
 };

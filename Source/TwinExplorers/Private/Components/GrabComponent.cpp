@@ -105,7 +105,7 @@ void UGrabComponent::OnRep_HeldComponent() {
 	}
 
 	// 当物体被拖拽的时候就将客户端的物理模拟关掉，防止抖动
-	// HeldComponent->SetSimulatePhysics(false);
+	HeldComponent->SetSimulatePhysics(false);
 }
 
 void UGrabComponent::OnRep_GrabItemMeshComp() const {

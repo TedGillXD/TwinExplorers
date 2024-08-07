@@ -25,6 +25,10 @@ public:
 	// 调用这个函数触发传送
 	// 需要实现者自己实现网络同步相关的处理，比如哪部分需要在客户端那部分需要在服务器
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	void Transport(const FVector& TargetLocation, const FRotator& TargetRotation);
-	virtual void Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) = 0;
+	void Transport(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& TargetVelocity);
+	virtual void Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& TargetVelocity) = 0;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	FVector GetOriginalVelocity();
+	virtual FVector GetOriginalVelocity_Implementation() = 0;
 };
