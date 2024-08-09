@@ -35,6 +35,7 @@ protected:
 	UMaterialInterface* UnfocusedMaterial;
 
 public:
+
 	virtual bool CanInteract_Implementation(const FItem& InHandItem) override;
 	virtual void Interact_Implementation(APawn* FromPawn, const FItem& InHandItem) override;
 	virtual FString GetInteractString_Implementation() override;

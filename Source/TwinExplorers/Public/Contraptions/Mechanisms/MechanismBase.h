@@ -39,11 +39,11 @@ protected:
 	UFUNCTION()
 	void SwitchOff();
 
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	void Activate();
 	virtual void Activate_Implementation();
 
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	void Deactivate();
 	virtual void Deactivate_Implementation();
 };

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "GameModes/TEGameModeBase.h"
 #include "TEPlayerController.generated.h"
 
 UENUM(BlueprintType)
@@ -11,6 +12,9 @@ enum EInputDevice {
 	Keyboard = 0,
 	GamePad
 };
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRoundCountDownChanged, int32, LeftTimeInSecond);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnRoundTitleChanged, FString, NewTitle, int32, StageTimeInSecond);
 
 class UInputMappingContext;
 class UInputAction;
@@ -40,35 +44,30 @@ public:
 	UInputAction* InteractAction;			// 和物体互动的Action
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* UseItemButtonPressedAction;				// 使用物品的Action按下事件
+	UInputAction* DragItemPressedAction;				// 使用物品的Action按下事件
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* UseItemButtonReleasedAction;				// 使用物品的Action松开事件
+	UInputAction* DragItemReleaseAction;				// 使用物品的Action松开事件
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* CancelUseItemBottomPressedAction;		// 取消使用物品的Action按下事件
+	UInputAction* UseToolPressedAction;		// 取消使用物品的Action按下事件
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* CancelUseItemBottomReleasedAction;	// 取消使用物品的Action松开事件
+	UInputAction* UseToolReleaseAction;	// 取消使用物品的Action松开事件
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* FirstToolAction;		// 第一个工具的事件
+	UInputAction* UseToolAction;						// 使用道具的事件
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* SecondToolAction;		// 第二个工具的事件
+	// 用来通知客户端进行倒计时更新的委托
+	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="UI")
+	FOnRoundCountDownChanged OnRoundCountDownChanged;
 
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* ThirdToolAction;		// 第三个工具的事件
-
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* NextToolAction;		// 下一个工具的事件
-
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* PreviousToolAction;		// 上一个工具的事件
-
+	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="UI")
+	FOnRoundTitleChanged OnRoundTitleChanged;
+	
 public:
-	void UseItemPressed();
-	void UseItemReleased();
+	void DragItemPressed();
+	void DragItemReleased();
 	void CancelUseItemPressed();
 	void CancelUseItemReleased();
 	
@@ -78,14 +77,14 @@ public:
 	void StartJump();
 	void StopJump();
 
-	void FirstTool();
-	void SecondTool();
-	void ThirdTool();
-	void NextTool();
-	void PreviousTool();
-
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
+
+	UFUNCTION(Client, Reliable)
+	void UpdateCountDown(int32 RoundTime);
+
+	UFUNCTION(Client, Reliable)
+	void UpdateCountDownTitle(const FString& String, int32 StageTime);
 
 private:
 	void BindInputContext() const;

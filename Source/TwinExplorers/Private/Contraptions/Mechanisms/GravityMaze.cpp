@@ -33,8 +33,8 @@ AGravityMaze::AGravityMaze() {
 	
 	// 设置PhysicsConstraint
 	PhysicsConstraintComp->SetDisableCollision(true);
-	PhysicsConstraintComp->SetAngularSwing1Limit(ACM_Limited, 45.f);
-	PhysicsConstraintComp->SetAngularSwing2Limit(ACM_Limited, 45.f);
+	PhysicsConstraintComp->SetAngularSwing1Limit(ACM_Limited, 30.f);
+	PhysicsConstraintComp->SetAngularSwing2Limit(ACM_Limited, 30.f);
 	PhysicsConstraintComp->SetAngularTwistLimit(ACM_Locked, 0.f);
 	
 	PhysicsConstraintComp->SetLinearXLimit(LCM_Locked, 0.f);

@@ -20,9 +20,6 @@ protected:
 	
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	UStaticMeshComponent* PillarMeshComp;
-	
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="IcePillar Props")
-	FName InteractItemName;			//能和这个物体进行互动的物品名字
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="IcePillar Props")
 	FString InteractString;

@@ -12,9 +12,9 @@ class UArrowComponent;
 
 UENUM()
 enum EOptimizedLevel {
-	Level0,			// 3 * ViewportSize
-	Level1,			// 2 * ViewportSize
-	Level2,			// 1 * ViewportSize
+	Level0,			// ViewportSize
+	Level1,			// 0.5 * ViewportSize
+	Level2,			// 0.25 * ViewportSize
 	Level3,			// 不渲染
 };
 
@@ -46,6 +46,8 @@ protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	UBoxComponent* DisableWallCollisionBox;			// 用来检测角色是否已经进入了Portal区域，用来关闭墙体与需要传送的物体之间的碰撞
 
+	EOptimizedLevel LastLevel;
+	
 protected:
 
 	// 传送门的材质
@@ -58,7 +60,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Portal Props")
 	UMaterialInstanceDynamic* PortalMatInstance;
 
-	UPROPERTY(BlueprintReadOnly, Category="Portal Props", ReplicatedUsing=OnRep_LinkedPortal)
+	UPROPERTY(BlueprintReadOnly, Category="Portal Props", EditAnywhere, ReplicatedUsing=OnRep_LinkedPortal)
 	APortalV2* LinkedPortal;
 
 
@@ -123,4 +125,5 @@ private:
 	void SetToLevel0Resolution();
 	void SetToLevel1Resolution();
 	void SetToLevel2Resolution();
+	float GetScale() const;
 };

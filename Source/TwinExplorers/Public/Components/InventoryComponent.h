@@ -8,8 +8,8 @@
 #include "InventoryComponent.generated.h"
 
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnInventoryChanged, const TArray<FItem>&, Tools, const TArray<FItem>&, Props);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSelectedToolChanged, int32, NewIndex, const FItem&, Item);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnInventoryChanged, const FItem&, Tool, const TArray<FItem>&, Props);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSelectedToolChanged, const FItem&, Item);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class TWINEXPLORERS_API UInventoryComponent : public UActorComponent
@@ -22,14 +22,11 @@ public:
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category="Inventory Props", ReplicatedUsing=OnRep_Tools)
-	TArray<FItem> Tools;		// 能拿在手上的道具
+	FItem Tools;		// 能拿在手上的道具
 
 	UPROPERTY(BlueprintReadOnly, Category="Inventory Props", ReplicatedUsing=OnRep_Props)
 	TArray<FItem> Props;		// 不能拿在手上的道具
-
-	UPROPERTY(ReplicatedUsing=OnRep_SelectedToolIndex)
-	int32 SelectedToolIndex;
-
+	
 public:
 	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="Inventory Props")
 	FOnInventoryChanged OnInventoryChanged;
@@ -65,18 +62,10 @@ public:
 	static bool IsItemValid(const FItem& Item);
 
 public:
-	UFUNCTION(Server, Reliable)
-	void ChangeInHandItemOnServer(int32 NewIndex);
+
+	UFUNCTION(BlueprintCallable)
+	void UseInHandItem();
 	
-	UFUNCTION(BlueprintCallable)
-	void ChangeInHandItem(int32 NewIndex);
-
-	UFUNCTION(BlueprintCallable)
-	void NextTool();
-
-	UFUNCTION(BlueprintCallable)
-	void PreviousTool();
-
 	UFUNCTION(BlueprintCallable)
 	const FItem& GetInHandItem();
 

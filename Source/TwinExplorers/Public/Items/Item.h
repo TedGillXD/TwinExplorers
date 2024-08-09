@@ -25,6 +25,12 @@ struct FItem {
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="ItemProps")
 	UTexture2D* Icon;		// 图标
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="ItemProps")
+	uint8 MaxUsageCount;		// 最大使用次数
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="ItemProps")
+	uint8 UsageCount;			// 当前的使用次数
 };
 
 static FItem EmptyItem = {};

@@ -11,8 +11,11 @@
 #include "Components/InventoryComponent.h"
 #include "Components/PortalGenerationComponent.h"
 #include "GameFramework/PawnMovementComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "GameModes/TEGameModeBase.h"
 #include "Items/InHandToolActorBase.h"
 #include "Net/UnrealNetwork.h"
+#include "PhysicsEngine/PhysicsConstraintComponent.h"
 
 // Sets default values
 AMainCharacterBase::AMainCharacterBase()
@@ -24,8 +27,11 @@ AMainCharacterBase::AMainCharacterBase()
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
 
 	// Character的基本组件
+	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+	SpringArm->SetupAttachment(GetCapsuleComponent());
+	
 	FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
-	FirstPersonCamera->SetupAttachment(GetCapsuleComponent());
+	FirstPersonCamera->SetupAttachment(SpringArm);
 	FirstPersonCamera->SetRelativeLocation(FVector(-10.f, 0.f, 60.f)); // Position the camera
 	FirstPersonCamera->bUsePawnControlRotation = true;
 
@@ -48,8 +54,11 @@ AMainCharacterBase::AMainCharacterBase()
 	PortalGenerationComponent = CreateDefaultSubobject<UPortalGenerationComponent>(TEXT("PortalGenerationComp"));
 	PortalGenerationComponent->SetIsReplicated(true);
 
-	// 绑定更换手中道具的函数
-	InventoryComponent->OnSelectedToolChanged.AddDynamic(this, &AMainCharacterBase::InHandItemChanged);
+    PhysicsConstraint = CreateDefaultSubobject<UPhysicsConstraintComponent>(TEXT("PhysicsConstraint"));
+	PhysicsConstraint->SetConstrainedComponents(GetCapsuleComponent(), NAME_None, nullptr, NAME_None);
+	
+    // 绑定更换手中道具的函数
+    InventoryComponent->OnSelectedToolChanged.AddDynamic(this, &AMainCharacterBase::InHandItemChanged);
 }
 
 // Called when the game starts or when spawned
@@ -85,6 +94,37 @@ UIceGenerationComponent* AMainCharacterBase::GetIceGenerationComponent() const {
 	return IceGenerationComponent;
 }
 
+void AMainCharacterBase::SetCharacterTeam(ECharacterTeam NewTeam) {
+	CharacterTeam = NewTeam;
+}
+
+ECharacterTeam AMainCharacterBase::GetCharacterTeam() const {
+	return CharacterTeam;
+}
+
+void AMainCharacterBase::GetInfectOnServer_Implementation() {
+	SetCharacterTeam(ECharacterTeam::Enemy);
+	
+	// Only check game over condition from the server
+	ATEGameModeBase* GameMode = Cast<ATEGameModeBase>(GetWorld()->GetAuthGameMode());
+	if (GameMode) {
+		GameMode->CheckGameOver();
+	}
+}
+
+void AMainCharacterBase::GetInfect() {
+	if (HasAuthority()) {
+		SetCharacterTeam(ECharacterTeam::Enemy);
+		AMainCharacterBase* Character = Cast<AMainCharacterBase>(GetWorld()->GetFirstPlayerController()->GetCharacter());
+		ATEGameModeBase* GameMode = Cast<ATEGameModeBase>(GetWorld()->GetAuthGameMode());
+		if (GameMode) {
+			GameMode->CheckGameOver();
+		}
+	} else {
+		GetInfectOnServer();
+	}
+}
+
 void AMainCharacterBase::AddControllerPitchInput(float Val) {
 	Super::AddControllerPitchInput(Val);
 
@@ -93,16 +133,12 @@ void AMainCharacterBase::AddControllerPitchInput(float Val) {
 	UpdateCameraPitchOnServer(CameraPitch);		// 否则，通过RPC更新角色在服务器中的Pitch
 }
 
-void AMainCharacterBase::UseInHandItemPressed() {
-	if(AInHandToolActorBase* InHandToolActor = Cast<AInHandToolActorBase>(InHandItemActor->GetChildActor())) {
-		InHandToolActor->UseInHandItemPressed(this);
-	}
+void AMainCharacterBase::DragItemPressed() {
+	GrabComponent->GrabItem();
 }
 
-void AMainCharacterBase::UseInHandItemReleased() {
-	if(AInHandToolActorBase* InHandToolActor = Cast<AInHandToolActorBase>(InHandItemActor->GetChildActor())) {
-		InHandToolActor->UseInHandItemReleased(this);
-	}
+void AMainCharacterBase::DragItemReleased() {
+	GrabComponent->DropItem();
 }
 
 void AMainCharacterBase::CancelUseItemPressed() {
@@ -117,29 +153,21 @@ void AMainCharacterBase::CancelUseItemReleased() {
 	}
 }
 
-void AMainCharacterBase::SelectTool(int32 ToolIndex) const {
-	InventoryComponent->ChangeInHandItem(ToolIndex);
-}
-
-void AMainCharacterBase::NextTool() const {
-	InventoryComponent->NextTool();
-}
-
-void AMainCharacterBase::PreviousTool() const {
-	InventoryComponent->PreviousTool();
-}
-
 void AMainCharacterBase::OnRep_CameraPitch() const {
 	const FRotator Rotator = FirstPersonCamera->GetComponentRotation();
 	const FRotator NewRotator{CameraPitch, Rotator.Yaw, Rotator.Roll};
 	FirstPersonCamera->SetWorldRotation(NewRotator);
 }
 
-void AMainCharacterBase::InHandItemChanged(int32 NewIndex, const FItem& Item) {
+void AMainCharacterBase::OnRep_CharacterTeam() const {
+	// TODO：根据队伍处理角色的外观
+}
+
+void AMainCharacterBase::InHandItemChanged(const FItem& Item) {
 	if(HasAuthority()) {
 		InHandItemActor->SetChildActorClass(Item.ItemActorClass);
 	} else {
-		InHandItemChangedOnServer(NewIndex, Item);
+		InHandItemChangedOnServer(Item);
 	}
 }
 
@@ -167,8 +195,8 @@ void AMainCharacterBase::SetControlRotationOnClient_Implementation(const FVector
 	}
 }
 
-void AMainCharacterBase::InHandItemChangedOnServer_Implementation(int32 NewIndex, const FItem& Item) {
-	InHandItemChanged(NewIndex, Item);
+void AMainCharacterBase::InHandItemChangedOnServer_Implementation(const FItem& Item) {
+	InHandItemChanged(Item);
 }
 
 void AMainCharacterBase::UpdateCameraPitchOnServer_Implementation(float NewCameraPitch) {
@@ -183,4 +211,5 @@ void AMainCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AMainCharacterBase, CameraPitch, COND_None);
+	DOREPLIFETIME(AMainCharacterBase, CharacterTeam);
 }

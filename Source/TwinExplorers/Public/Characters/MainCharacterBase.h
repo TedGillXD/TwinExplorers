@@ -9,12 +9,20 @@
 #include "Items/Item.h"
 #include "MainCharacterBase.generated.h"
 
+class UPhysicsConstraintComponent;
+class USpringArmComponent;
 class UPortalGenerationComponent;
 class UIceGenerationComponent;
 class UGrabComponent;
 class UInventoryComponent;
 class UInteractComponent;
 class UCameraComponent;
+
+UENUM(BlueprintType)
+enum class ECharacterTeam : uint8 {
+	Human UMETA(DisplayName = "Human"),
+	Enemy UMETA(DisplayName = "Enemy")
+};
 
 UCLASS()
 class TWINEXPLORERS_API AMainCharacterBase : public ACharacter, public ITransportableInterface
@@ -24,6 +32,9 @@ class TWINEXPLORERS_API AMainCharacterBase : public ACharacter, public ITranspor
 protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UCameraComponent* FirstPersonCamera;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
+	USpringArmComponent* SpringArm;
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UInteractComponent* InteractComponent;		// 提供与物体交互能力的Component
@@ -43,9 +54,14 @@ protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UIceGenerationComponent* IceGenerationComponent;		// 用来在特定的表面上生成柱子的功能
 
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
+	UPhysicsConstraintComponent* PhysicsConstraint;
 protected:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CameraPitch)
 	float CameraPitch;
+
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CharacterTeam)
+	ECharacterTeam CharacterTeam;	// 角色队伍类型
 	
 public:
 	// Sets default values for this character's properties
@@ -66,37 +82,45 @@ public:
 	UGrabComponent* GetGrabComponent() const;
 	UIceGenerationComponent* GetIceGenerationComponent() const;
 
+	void SetCharacterTeam(ECharacterTeam NewTeam);
+	ECharacterTeam GetCharacterTeam() const;
+
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void GetInfectOnServer();
+
+	UFUNCTION(BlueprintCallable)
+	void GetInfect();
+
 	virtual void AddControllerPitchInput(float Val) override;
 	
 	UFUNCTION(BlueprintCallable)
-	void UseInHandItemPressed();
+	void DragItemPressed();
 
 	UFUNCTION(BlueprintCallable)
-	void UseInHandItemReleased();
+	void DragItemReleased();
 
 	UFUNCTION(BlueprintCallable)
 	void CancelUseItemPressed();
 
 	UFUNCTION(BlueprintCallable)
 	void CancelUseItemReleased();
-
-	void SelectTool(int32 ToolIndex) const;
-	void NextTool() const;
-	void PreviousTool() const;
-
+	
 protected:
 	UFUNCTION()
 	void OnRep_CameraPitch() const;
+
+	UFUNCTION()
+	void OnRep_CharacterTeam() const;
 
 	// 负责将客户端角色的CameraPitch更新到服务器
 	UFUNCTION(Server, Unreliable)
 	void UpdateCameraPitchOnServer(float NewCameraPitch);
 
 	UFUNCTION(Server, Reliable)
-	void InHandItemChangedOnServer(int32 NewIndex, const FItem& Item);
+	void InHandItemChangedOnServer(const FItem& Item);
 
 	UFUNCTION()
-	void InHandItemChanged(int32 NewIndex, const FItem& Item);
+	void InHandItemChanged(const FItem& Item);
 
 protected:
 	virtual void Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& TargetVelocity) override;

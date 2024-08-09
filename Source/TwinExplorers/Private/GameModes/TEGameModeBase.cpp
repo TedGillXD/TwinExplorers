@@ -3,38 +3,186 @@
 
 #include "GameModes/TEGameModeBase.h"
 
+#include "EngineUtils.h"
+#include "Characters/MainCharacterBase.h"
 #include "Controllers/TEPlayerController.h"
 #include "GameFramework/PlayerStart.h"
+#include "Items/ItemActorBase.h"
 #include "Kismet/GameplayStatics.h"
 
 ATEGameModeBase::ATEGameModeBase() {
-	MaxPlayerCount = 2;
+	MaxPlayerCount = 5;
+	StartWaitTime = 5.f;
+	RoundTime = 20.f;	// 3分钟，先用20秒做测试
+	ItemSpawnInterval = 10.0f;	// 每分钟生成道具，先用10秒做测试
 }
 
 void ATEGameModeBase::BeginPlay() {
 	Super::BeginPlay();
-	
+
+	// 获取所有的能生成道具的位置
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), SpawnItemClass, SpawnItemLocations);
 }
 
 void ATEGameModeBase::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) {
 	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
 
 	ConnectedControllers.Add(Cast<ATEPlayerController>(NewPlayer));
+
+	// 当加入到足够多的人数之后，开始进入准备阶段，此时玩家仍然可以加入
+	if (ConnectedControllers.Num() >= RoundPlayerCount) {
+		IntoPrepareStage();
+	}
 }
 
-AActor* ATEGameModeBase::ChoosePlayerStart_Implementation(AController* Player)
-{
-	// 获取所有可用的 PlayerStarts
+AActor* ATEGameModeBase::ChoosePlayerStart_Implementation(AController* Player) {
 	TArray<AActor*> AvailablePlayerStarts;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), AvailablePlayerStarts);
 
-	// 根据玩家加入游戏的顺序选择 PlayerStart
-	int32 PlayerIndex = GetNumPlayers() - 1; // 获取当前玩家的索引（假设 GetNumPlayers() 返回当前玩家数量）
+	int32 PlayerIndex = GetNumPlayers() - 1;
 
 	if (AvailablePlayerStarts.IsValidIndex(PlayerIndex)) {
 		return AvailablePlayerStarts[PlayerIndex];
 	}
 
-	// 如果没有合适的 PlayerStart，返回父类的默认实现
 	return Super::ChoosePlayerStart_Implementation(Player);
+}
+
+void ATEGameModeBase::StartRoundPrepare() {
+	GetWorldTimerManager().ClearTimer(TimerHandle_PrepareCountDown);
+	SetPlayerRoles();
+	StartRound();
+}
+
+void ATEGameModeBase::StartRound() {
+	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Round Start!"));
+	for(ATEPlayerController* Controller : ConnectedControllers) {
+		Controller->UpdateCountDownTitle(FString(TEXT("距离本回合结束还有")), StartWaitTime);
+	}
+	
+	GetWorldTimerManager().SetTimer(TimerHandle_ItemSpawn, this, &ATEGameModeBase::SpawnItem, ItemSpawnInterval, true, ItemSpawnInterval);
+	GetWorldTimerManager().SetTimer(TimerHandle_RoundEnd, this, &ATEGameModeBase::EndRound, RoundTime, false);
+	GetWorldTimerManager().SetTimer(TimerHandle_RoundCountDown, this, &ATEGameModeBase::CountDown, 1.f, true);
+}
+
+void ATEGameModeBase::SpawnItem() {
+	// 如果没有指定生成的道具并且场景中没有标记位置，直接返回
+	if (SpawnItemLocations.Num() == 0 || ItemClasses.Num() == 0) { return; }
+
+	// 选择一个随机的位置
+	int32 RandomLocationIndex = FMath::RandRange(0, SpawnItemLocations.Num() - 1);
+	AActor* SpawnLocationActor = SpawnItemLocations[RandomLocationIndex];
+	if (!SpawnLocationActor) { return; }
+
+	FVector SpawnLocation = SpawnLocationActor->GetActorLocation();
+	FRotator SpawnRotation = FRotator::ZeroRotator;
+
+	// 选择一个随机的道具类
+	int32 RandomItemIndex = FMath::RandRange(0, ItemClasses.Num() - 1);
+	TSubclassOf<AItemActorBase> SelectedItemClass = ItemClasses[RandomItemIndex];
+	if (!SelectedItemClass) { return; }
+
+	// 在选择的位置生成道具实例
+	GetWorld()->SpawnActor<AItemActorBase>(SelectedItemClass, SpawnLocation, SpawnRotation);
+}
+
+void ATEGameModeBase::EndRound() {
+	// 清除道具生成定时器
+	GetWorldTimerManager().ClearTimer(TimerHandle_ItemSpawn);
+	GetWorldTimerManager().ClearTimer(TimerHandle_RoundCountDown);
+
+	// 检查场上是否还有人类角色
+	bool bHumanRemaining = false;
+	for (AActor* Actor : TActorRange<AActor>(GetWorld())) {
+		AMainCharacterBase* Character = Cast<AMainCharacterBase>(Actor);
+		if (Character && Character->GetCharacterTeam() == ECharacterTeam::Human) {
+			bHumanRemaining = true;
+			break;
+		}
+	}
+
+	if (bHumanRemaining) {
+		// 如果还有人类，则人类获胜
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Humans Win!"));
+	} else {
+		// 否则鬼获胜
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("Enemies Win!"));
+	}
+
+	// 可以在这里添加其他回合结束的逻辑
+}
+
+void ATEGameModeBase::SetPlayerRoles() {
+	if (ConnectedControllers.Num() > 0) {
+		// 随机选择一个玩家作为鬼
+		int32 RandomIndex = FMath::RandRange(0, ConnectedControllers.Num() - 1);
+
+		for (int32 i = 0; i < ConnectedControllers.Num(); ++i) {
+			ATEPlayerController* PlayerController = ConnectedControllers[i];
+			if (PlayerController) {
+				AMainCharacterBase* Character = Cast<AMainCharacterBase>(PlayerController->GetCharacter());
+				if (Character) {
+					if (i == RandomIndex) {
+						AssignCharacterTeam(Character, 0);  // 将随机选中的玩家设为鬼
+					} else {
+						AssignCharacterTeam(Character, 1);  // 其他玩家设为人
+					}
+				}
+			}
+		}
+	}
+}
+
+void ATEGameModeBase::AssignCharacterTeam(AMainCharacterBase* Character, int32 Index) {
+	if (Character) {
+		if (Index == 0) {
+			Character->SetCharacterTeam(ECharacterTeam::Enemy); // 第一个玩家是鬼
+		} else {
+			Character->SetCharacterTeam(ECharacterTeam::Human); // 其他玩家是人
+		}
+	}
+}
+
+void ATEGameModeBase::IntoPrepareStage() {
+	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Waiting for rest of the players!"));
+
+	for(ATEPlayerController* Controller : ConnectedControllers) {
+		Controller->UpdateCountDownTitle(FString(TEXT("距离正式开始还有")), StartWaitTime);
+	}
+	
+	GetWorldTimerManager().SetTimer(TimerHandle_RoundStart, this, &ATEGameModeBase::StartRoundPrepare, StartWaitTime, false);
+	GetWorldTimerManager().SetTimer(TimerHandle_PrepareCountDown, this, &ATEGameModeBase::PrepareCountDown, 1.f, true);
+}
+
+void ATEGameModeBase::PrepareCountDown() {
+	StartWaitTime--;
+
+	for(ATEPlayerController* Controller : ConnectedControllers) {
+		Controller->UpdateCountDown(StartWaitTime);
+	}
+}
+
+void ATEGameModeBase::CountDown() {
+	RoundTime--;
+
+	for(ATEPlayerController* Controller : ConnectedControllers) {
+		Controller->UpdateCountDown(RoundTime);
+	}
+}
+
+bool ATEGameModeBase::AreAllPlayersInfected() const {
+	for (AActor* Actor : TActorRange<AActor>(GetWorld())) {
+		AMainCharacterBase* Character = Cast<AMainCharacterBase>(Actor);
+		if (Character && Character->GetCharacterTeam() == ECharacterTeam::Human) {
+			return false; // 如果还有人类角色，游戏未结束
+		}
+	}
+	return true; // 所有玩家均已被感染
+}
+
+void ATEGameModeBase::CheckGameOver() {
+	if (AreAllPlayersInfected()) {
+		// 如果所有玩家都已被感染，结束游戏
+		EndRound();
+	}
 }

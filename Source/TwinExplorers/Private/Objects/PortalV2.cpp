@@ -47,8 +47,11 @@ APortalV2::APortalV2()
 // Called when the game starts or when spawned
 void APortalV2::BeginPlay() {
 	Super::BeginPlay();
-	
+
 	if(!HasAuthority()) {
+		if(LinkedPortal) {
+			Init();
+		}
 		
 		// 获取本地的角色
 		const int32 NumLocalPlayer = UGameplayStatics::GetNumLocalPlayerControllers(GetWorld());
@@ -69,25 +72,25 @@ void APortalV2::BeginPlay() {
 void APortalV2::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
 
-	// 在这里检测是否存在另外一个Portal，如果存在则绑定
-	// 为什么不在BeginPlay执行呢？因为根据RPC规则，如果是通过通知的方式需要在Client1发送链接到服务器然后再从服务器复制到Client2，然后Client2得到通知再发送链接请求到服务器到Client1，总共需要Server <-> Client进行4次通信
-	// 而改成在Tick中，就能减少为两次
-	if(HasAuthority()) {
-		if(!LinkedPortal) {
-			// 尝试获取另外一个Portal
-			TArray<AActor*> FoundActors;
-			UGameplayStatics::GetAllActorsOfClass(GetWorld(), StaticClass(), FoundActors);
-			for(AActor* Actor : FoundActors) {
-				if(Actor != this) {
-					APortalV2* OtherPortal = Cast<APortalV2>(Actor);
-					LinkPortal(OtherPortal);       // 绑定传送门
-				}
-			}
-		}
-	}
+	// // 在这里检测是否存在另外一个Portal，如果存在则绑定
+	// // 为什么不在BeginPlay执行呢？因为根据RPC规则，如果是通过通知的方式需要在Client1发送链接到服务器然后再从服务器复制到Client2，然后Client2得到通知再发送链接请求到服务器到Client1，总共需要Server <-> Client进行4次通信
+	// // 而改成在Tick中，就能减少为两次
+	// if(HasAuthority()) {
+	// 	if(!LinkedPortal) {
+	// 		// 尝试获取另外一个Portal
+	// 		TArray<AActor*> FoundActors;
+	// 		UGameplayStatics::GetAllActorsOfClass(GetWorld(), StaticClass(), FoundActors);
+	// 		for(AActor* Actor : FoundActors) {
+	// 			if(Actor != this) {
+	// 				APortalV2* OtherPortal = Cast<APortalV2>(Actor);
+	// 				LinkPortal(OtherPortal);       // 绑定传送门
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	if(!HasAuthority()) {
-		if(LocalCharacter && LinkedPortal) {
+		if(LocalCharacter && LinkedPortal && bIsInit) {
 			SetCurrentOptimizationLevel(GetOptimizationLevel());
 			UpdateSceneCapture(LocalCharacter->GetCameraComponent()->GetComponentTransform());
 			DoViewportResize();
@@ -138,6 +141,7 @@ void APortalV2::Init() {
 	
 	LinkedPortal->PortalCamera->TextureTarget = PortalRT;
 	SetClipPlane();
+	bIsInit = true;
 }
 
 void APortalV2::LinkPortalOnServer_Implementation(APortalV2* OtherPortal) {
@@ -169,6 +173,8 @@ void APortalV2::SetClipPlane() const {
 }
 
 void APortalV2::UpdateSceneCapture(const FTransform& CameraTransform) const {
+	if(!bIsEnabled) { return; }		// 如果现在没启用则跳过
+	
 	// 计算目标位置
 	FTransform Current = GetActorTransform();
 	FTransform temp;
@@ -196,15 +202,29 @@ FVector APortalV2::GetTargetRotationAxe(const FVector& Axe) const {
 }
 
 void APortalV2::DoViewportResize() const {
-	FVector2D Size;
-	GEngine->GameViewport->GetViewportSize(Size);
-	if(Size.X == PortalRT->SizeX && Size.Y == PortalRT->SizeY) {
+	if(!bIsEnabled) { return; }
+	
+	FVector2D ViewportSize;
+	GEngine->GameViewport->GetViewportSize(ViewportSize);
+
+	if (ViewportSize.X <= 0 || ViewportSize.Y <= 0) {
 		return;
 	}
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Resizing!");
-	PortalRT->ResizeTarget(Size.X, Size.Y);
+	float Scale = GetScale();
+	int32 TargetWidth = FMath::RoundToInt(ViewportSize.X * Scale);
+	int32 TargetHeight = FMath::RoundToInt(ViewportSize.Y * Scale);
+
+	// 如果大小不合法，返回
+	if (TargetWidth <= 0 || TargetHeight <= 0) {
+		return;
+	}
+
+	if (PortalRT->SizeX != TargetWidth || PortalRT->SizeY != TargetHeight) {
+		PortalRT->ResizeTarget(TargetWidth, TargetHeight);
+	}
 }
+
 
 FVector APortalV2::GetUpdatedVelocity(const FVector& OriginalVelocity) {
 	return GetTargetRotationAxe(OriginalVelocity.GetSafeNormal()) * OriginalVelocity.Length();
@@ -223,14 +243,28 @@ void APortalV2::MarkTeleporting() {
 }
 
 EOptimizedLevel APortalV2::GetOptimizationLevel() const {
-	FVector2D ScreenLocation;
-	bool bIsOnScreen = LocalPlayerController->ProjectWorldLocationToScreen(GetActorLocation(), ScreenLocation);
-	if(!bIsOnScreen) { return Level3; }
+	// FVector2D ScreenLocation;
+	// bool bIsOnScreen = LocalPlayerController->ProjectWorldLocationToScreen(GetActorLocation(), ScreenLocation);
+	// if(!bIsOnScreen) { return Level3; }
+	
+	float Angle = FVector::DotProduct(LocalCharacter->GetActorForwardVector() * -1.f, this->GetActorForwardVector());
+	float Distance = (LocalCharacter->GetActorLocation() - this->GetActorLocation()).Length();
+	if(Angle <= 0) {	// 大于等于90°
+		return Level3;
+	}
 
-	// TODO：后续修改成返回优化等级
-	
-	
-	return Level0;
+	// 大于45°
+	if(Angle <= 0.707) {
+		if (Distance < 1000.f) { return Level1; }  // 中高精度 
+		if (Distance < 2000.f) { return Level2; }  // 中等精度
+		return Level3;  // 低精度
+	}
+
+	// 小于45°
+	if (Distance < 1000.f) {  return Level0; }  // 高精度
+	if (Distance < 2000.f) { return Level1; }  // 中高精度
+	if (Distance < 3000.f) { return Level2; }  // 中等精度
+	return Level3;  // 低精度
 }
 
 void APortalV2::EnableSceneCapture() {
@@ -271,23 +305,40 @@ void APortalV2::SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel) {
 		
 	case Level3:		// 不渲染
 	default:
-		LinkedPortal->DisableSceneCapture();
+		DisableSceneCapture();
 		break;
 	}
 
-	GEngine->AddOnScreenDebugMessage(-1, 0.0, FColor::Blue, GetName() + (bIsEnabled ? " : True" : " : False"));
+	LastLevel = OptimizedLevel;
+	GEngine->AddOnScreenDebugMessage(-1, 0.0, FColor::Blue, GetName() + (bIsEnabled ? " : True" : " : False") + "  " + FString::FromInt(OptimizedLevel));
 }
 
 void APortalV2::SetToLevel0Resolution() {
-	
+	if(Level0 == LastLevel) { return; }
+	FVector2D Size;
+	GEngine->GameViewport->GetViewportSize(Size);
+	LinkedPortal->PortalRT->ResizeTarget(Size.X, Size.Y);
 }
 
 void APortalV2::SetToLevel1Resolution() {
-	
+	if(Level0 == LastLevel) { return; }
+	FVector2D Size;
+	GEngine->GameViewport->GetViewportSize(Size);
+	LinkedPortal->PortalRT->ResizeTarget(Size.X * 0.5f, Size.Y * 0.5f);
 }
 
 void APortalV2::SetToLevel2Resolution() {
-	
+	if(Level0 == LastLevel) { return; }
+	FVector2D Size;
+	GEngine->GameViewport->GetViewportSize(Size);
+	LinkedPortal->PortalRT->ResizeTarget(Size.X * 0.25f, Size.Y * 0.25f);
+}
+
+float APortalV2::GetScale() const {
+	if(LastLevel == Level0) { return 1.0; }
+	if(LastLevel == Level1) { return 0.5; }
+	if(LastLevel == Level2) { return 0.25; }
+	return 0.f;
 }
 
 void APortalV2::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {

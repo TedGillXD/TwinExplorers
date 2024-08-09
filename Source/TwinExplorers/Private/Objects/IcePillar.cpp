@@ -61,7 +61,7 @@ float AIcePillar::GetInterpTime(const float From, const float To, const float Sp
 }
 
 bool AIcePillar::CanInteract_Implementation(const FItem& InHandItem) {
-	return InHandItem.ItemName.IsEqual(InteractItemName, ENameCase::CaseSensitive);
+	return true;
 }
 
 void AIcePillar::Interact_Implementation(APawn* FromPawn, const FItem& InHandItem) {

@@ -12,21 +12,21 @@
 #include "GameFramework/Character.h"
 
 
-void ATEPlayerController::UseItemPressed() {
+void ATEPlayerController::DragItemPressed() {
 	// for test now
 	if(!GetCharacter()) { return; }
 
 	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->UseInHandItemPressed();
+		CharacterBase->DragItemPressed();
 	}
 	
 }
 
-void ATEPlayerController::UseItemReleased() {
+void ATEPlayerController::DragItemReleased() {
 	if(!GetCharacter()) { return; }
 
 	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->UseInHandItemReleased();
+		CharacterBase->DragItemReleased();
 	}
 }
 
@@ -86,46 +86,6 @@ void ATEPlayerController::StopJump() {
 	GetCharacter()->StopJumping();
 }
 
-void ATEPlayerController::FirstTool() {
-	if(!GetCharacter()) { return; }
-
-	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->SelectTool(0);
-	}
-}
-
-void ATEPlayerController::SecondTool() {
-	if(!GetCharacter()) { return; }
-
-	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->SelectTool(1);
-	}
-}
-
-void ATEPlayerController::ThirdTool() {
-	if(!GetCharacter()) { return; }
-
-	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->SelectTool(2);
-	}
-}
-
-void ATEPlayerController::NextTool() {
-	if(!GetCharacter()) { return; }
-
-	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->NextTool();
-	}
-}
-
-void ATEPlayerController::PreviousTool() {
-	if(!GetCharacter()) { return; }
-
-	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->PreviousTool();
-	}
-}
-
 void ATEPlayerController::BeginPlay() {
 	Super::BeginPlay();
 
@@ -144,18 +104,19 @@ void ATEPlayerController::SetupInputComponent() {
 
 		// 互动事件
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Triggered, this, &ATEPlayerController::Interact);
-		EnhancedInputComponent->BindAction(UseItemButtonPressedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::UseItemPressed);
-		EnhancedInputComponent->BindAction(UseItemButtonReleasedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::UseItemReleased);
-		EnhancedInputComponent->BindAction(CancelUseItemBottomPressedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::CancelUseItemPressed);
-		EnhancedInputComponent->BindAction(CancelUseItemBottomReleasedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::CancelUseItemReleased);
-
-		// 切换工具的事件
-		EnhancedInputComponent->BindAction(FirstToolAction, ETriggerEvent::Triggered, this, &ATEPlayerController::FirstTool);
-		EnhancedInputComponent->BindAction(SecondToolAction, ETriggerEvent::Triggered, this, &ATEPlayerController::SecondTool);
-		EnhancedInputComponent->BindAction(ThirdToolAction, ETriggerEvent::Triggered, this, &ATEPlayerController::ThirdTool);
-		EnhancedInputComponent->BindAction(NextToolAction, ETriggerEvent::Triggered, this, &ATEPlayerController::NextTool);
-		EnhancedInputComponent->BindAction(PreviousToolAction, ETriggerEvent::Triggered, this, &ATEPlayerController::PreviousTool);
+		EnhancedInputComponent->BindAction(DragItemPressedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::DragItemPressed);
+		EnhancedInputComponent->BindAction(DragItemReleaseAction, ETriggerEvent::Triggered, this, &ATEPlayerController::DragItemReleased);
+		EnhancedInputComponent->BindAction(UseToolPressedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::CancelUseItemPressed);
+		EnhancedInputComponent->BindAction(UseToolReleaseAction, ETriggerEvent::Triggered, this, &ATEPlayerController::CancelUseItemReleased);
 	}
+}
+
+void ATEPlayerController::UpdateCountDown_Implementation(int32 RoundTime) {
+	OnRoundCountDownChanged.Broadcast(RoundTime);
+}
+
+void ATEPlayerController::UpdateCountDownTitle_Implementation(const FString& String, int32 StageTime) {
+	OnRoundTitleChanged.Broadcast(String, StageTime);
 }
 
 void ATEPlayerController::BindInputContext() const {
