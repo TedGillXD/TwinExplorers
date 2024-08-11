@@ -24,6 +24,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="IcePillar Props")
 	FString InteractString;
 
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="IcePillar Props")
+	float DestroyTime;			// 自动销毁时间
+
 	float Current;
 	float Target;
 
@@ -38,6 +41,7 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void Destroyed() override;
 
 public:	
 	// Called every frame

@@ -15,6 +15,7 @@ enum EInputDevice {
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRoundCountDownChanged, int32, LeftTimeInSecond);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnRoundTitleChanged, FString, NewTitle, int32, StageTimeInSecond);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRoundEnd, bool, bIsHumanWin);
 
 class UInputMappingContext;
 class UInputAction;
@@ -50,13 +51,10 @@ public:
 	UInputAction* DragItemReleaseAction;				// 使用物品的Action松开事件
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* UseToolPressedAction;		// 取消使用物品的Action按下事件
+	UInputAction* UseSkillAction;		// 使用技能的Action事件
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* UseToolReleaseAction;	// 取消使用物品的Action松开事件
-
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
-	UInputAction* UseToolAction;						// 使用道具的事件
+	UInputAction* AttackAction;			// 鬼的攻击事件
 
 	// 用来通知客户端进行倒计时更新的委托
 	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="UI")
@@ -64,18 +62,21 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="UI")
 	FOnRoundTitleChanged OnRoundTitleChanged;
+
+	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="UI")
+	FOnRoundEnd OnRoundEnd;
 	
 public:
 	void DragItemPressed();
 	void DragItemReleased();
-	void CancelUseItemPressed();
-	void CancelUseItemReleased();
+	void UseSkillPressed();
 	
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Interact();
 	void StartJump();
 	void StopJump();
+	void Attack();
 
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
@@ -85,6 +86,9 @@ public:
 
 	UFUNCTION(Client, Reliable)
 	void UpdateCountDownTitle(const FString& String, int32 StageTime);
+
+	UFUNCTION(Client, Reliable)
+	void EndRound(bool bIsHumanWin);			// 回合结束
 
 private:
 	void BindInputContext() const;

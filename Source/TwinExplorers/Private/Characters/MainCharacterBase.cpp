@@ -3,6 +3,7 @@
 
 #include "Characters/MainCharacterBase.h"
 
+#include "KismetTraceUtils.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/GrabComponent.h"
@@ -13,7 +14,7 @@
 #include "GameFramework/PawnMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameModes/TEGameModeBase.h"
-#include "Items/InHandToolActorBase.h"
+#include "Items/Skill.h"
 #include "Net/UnrealNetwork.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 
@@ -141,15 +142,71 @@ void AMainCharacterBase::DragItemReleased() {
 	GrabComponent->DropItem();
 }
 
-void AMainCharacterBase::CancelUseItemPressed() {
-	if(AInHandToolActorBase* InHandToolActor = Cast<AInHandToolActorBase>(InHandItemActor->GetChildActor())) {
-		InHandToolActor->CancelUseItemPressed(this);
+void AMainCharacterBase::UseSkillPressed() {
+	// 处理技能释放按下
+	ASkill* Skill = Cast<ASkill>(InHandItemActor->GetChildActor());
+	if(Skill) {
+		Skill->ActivateSkill(this);
 	}
 }
 
-void AMainCharacterBase::CancelUseItemReleased() {
-	if(AInHandToolActorBase* InHandToolActor = Cast<AInHandToolActorBase>(InHandItemActor->GetChildActor())) {
-		InHandToolActor->CancelUseItemReleased(this);
+void AMainCharacterBase::UseSkillReleased() {
+	// TODO：处理技能释放松开
+	
+}
+
+void AMainCharacterBase::AttackOnServer_Implementation() {
+	if(CharacterTeam == ECharacterTeam::Human) { return; }		// 人不会攻击
+	if(bIsAttacking) { return; }
+	bIsAttacking = true;
+	
+	MulticastPlayAttackMontage();
+	
+	FTimerHandle TimerHandle_Attack;
+	float PlayTime = AttackMontage ? PlayAnimMontage(AttackMontage, AttackPlayRate) : 0.0f; // 计算动画播放时间，同时在服务器上也播放动画，使其能进行通知
+	GetWorldTimerManager().SetTimer(TimerHandle_Attack, FTimerDelegate::CreateLambda([this]() -> void {
+		this->bIsAttacking = false;
+	}), PlayTime / AttackPlayRate, false);
+}
+
+void AMainCharacterBase::Attack() {
+	// 客户端处理输入
+	if(!HasAuthority()) {
+		if(CharacterTeam == ECharacterTeam::Human) { return; }		// 人不会攻击
+		if(bIsAttacking) { return; }
+		AttackOnServer();
+	}
+}
+
+void AMainCharacterBase::AttackDetection() {
+	if(HasAuthority()) {
+		TArray<FHitResult> Results;
+		FVector Start = GetActorLocation() + GetActorForwardVector() * GetCapsuleComponent()->GetScaledCapsuleRadius();
+		FVector End = Start + GetActorForwardVector() * 25.f;
+		FCollisionShape Box = FCollisionShape::MakeBox(FVector{ 25.0, 25.0, 25.0 });
+		FCollisionQueryParams Params;
+		Params.AddIgnoredActor(this);
+		bool bIsHit = GetWorld()->SweepMultiByChannel(Results, Start, End, GetActorRotation().Quaternion(), ECC_Pawn, Box, Params);
+		DrawDebugBoxTraceMulti(GetWorld(), Start, End, FVector{ 25.0, 25.0, 25.0 }, GetActorRotation(), EDrawDebugTrace::ForDuration, bIsHit, Results, FLinearColor::Green, FLinearColor::Red, 10.f);
+		if(!bIsHit) { return; }
+		
+		for(FHitResult& Result : Results) {
+			if(!Result.GetActor()->IsA<AMainCharacterBase>()) { continue; }
+
+			AMainCharacterBase* OtherCharacter = Cast<AMainCharacterBase>(Result.GetActor());
+			if(OtherCharacter->GetCharacterTeam() == ECharacterTeam::Human) {
+				OtherCharacter->GetInfect();		// 处理感染
+			}
+		}
+		
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow, "Notified");
+	}
+}
+
+void AMainCharacterBase::MulticastPlayAttackMontage_Implementation() {
+	// 播放攻击的蒙太奇
+	if(AttackMontage) {
+		PlayAnimMontage(AttackMontage, AttackPlayRate);
 	}
 }
 
@@ -160,7 +217,12 @@ void AMainCharacterBase::OnRep_CameraPitch() const {
 }
 
 void AMainCharacterBase::OnRep_CharacterTeam() const {
-	// TODO：根据队伍处理角色的外观
+	// 根据角色所属队伍处理角色的外观
+	if(CharacterTeam == ECharacterTeam::Human) {
+		GetMesh()->SetMaterial(0, HumanShirtMaterial);
+	} else {
+		GetMesh()->SetMaterial(0, EnemyShirtMaterial);
+	}
 }
 
 void AMainCharacterBase::InHandItemChanged(const FItem& Item) {
@@ -212,4 +274,5 @@ void AMainCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 
 	DOREPLIFETIME_CONDITION(AMainCharacterBase, CameraPitch, COND_None);
 	DOREPLIFETIME(AMainCharacterBase, CharacterTeam);
+	DOREPLIFETIME_CONDITION(AMainCharacterBase, bIsAttacking, COND_OwnerOnly);
 }

@@ -9,12 +9,14 @@
 #include "GameFramework/PlayerStart.h"
 #include "Items/ItemActorBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "Objects/PortalV2.h"
 
 ATEGameModeBase::ATEGameModeBase() {
 	MaxPlayerCount = 5;
 	StartWaitTime = 5.f;
-	RoundTime = 20.f;	// 3分钟，先用20秒做测试
-	ItemSpawnInterval = 10.0f;	// 每分钟生成道具，先用10秒做测试
+	RoundTime = 120.f;	// 2分钟，先用20秒做测试
+	PortalRelinkInterval = 20.f;
+	ItemSpawnInterval = 30.0f;	// 每分钟生成道具，先用10秒做测试
 }
 
 void ATEGameModeBase::BeginPlay() {
@@ -60,9 +62,10 @@ void ATEGameModeBase::StartRound() {
 		Controller->UpdateCountDownTitle(FString(TEXT("距离本回合结束还有")), StartWaitTime);
 	}
 	
-	GetWorldTimerManager().SetTimer(TimerHandle_ItemSpawn, this, &ATEGameModeBase::SpawnItem, ItemSpawnInterval, true, ItemSpawnInterval);
-	GetWorldTimerManager().SetTimer(TimerHandle_RoundEnd, this, &ATEGameModeBase::EndRound, RoundTime, false);
-	GetWorldTimerManager().SetTimer(TimerHandle_RoundCountDown, this, &ATEGameModeBase::CountDown, 1.f, true);
+	GetWorldTimerManager().SetTimer(TimerHandle_ItemSpawn, this, &ATEGameModeBase::SpawnItem, ItemSpawnInterval, true, ItemSpawnInterval);		// 开始生成道具倒计时
+	GetWorldTimerManager().SetTimer(TimerHandle_RoundEnd, this, &ATEGameModeBase::EndRound, RoundTime, false);												// 回合结束倒计时
+	// TODO：传送门重新链接倒计时
+	GetWorldTimerManager().SetTimer(TimerHandle_RoundCountDown, this, &ATEGameModeBase::CountDown, 1.f, true);												// 关卡结束倒计时
 }
 
 void ATEGameModeBase::SpawnItem() {
@@ -84,6 +87,27 @@ void ATEGameModeBase::SpawnItem() {
 
 	// 在选择的位置生成道具实例
 	GetWorld()->SpawnActor<AItemActorBase>(SelectedItemClass, SpawnLocation, SpawnRotation);
+}
+
+void ATEGameModeBase::RelinkPortals() const {
+	TArray<AActor*> Portals;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APortalV2::StaticClass(), Portals);
+	
+	// 打乱传送门数组
+	for (int32 i = Portals.Num() - 1; i > 0; --i) {
+		int32 j = FMath::RandRange(0, i);
+		Portals.Swap(i, j);
+	}
+
+	// 两两配对传送门
+	for (int32 i = 0; i < Portals.Num(); i += 2) {
+		APortalV2* Portal1 = Cast<APortalV2>(Portals[i]);
+		APortalV2* Portal2 = Cast<APortalV2>(Portals[i + 1]);
+
+		if (Portal1 && Portal2) {
+			APortalV2::Relink(Portal1, Portal2);
+		}
+	}
 }
 
 void ATEGameModeBase::EndRound() {
@@ -110,6 +134,13 @@ void ATEGameModeBase::EndRound() {
 	}
 
 	// 可以在这里添加其他回合结束的逻辑
+	// 显示结束画面
+	for(ATEPlayerController* Controller : ConnectedControllers) {
+		Controller->EndRound(bHumanRemaining);
+	}
+
+	FTimerHandle TimerHandle_KickAllPlayers;
+	GetWorldTimerManager().SetTimer(TimerHandle_KickAllPlayers, this, &ATEGameModeBase::KickAllPlayer, 5.f, false);
 }
 
 void ATEGameModeBase::SetPlayerRoles() {
@@ -140,6 +171,12 @@ void ATEGameModeBase::AssignCharacterTeam(AMainCharacterBase* Character, int32 I
 		} else {
 			Character->SetCharacterTeam(ECharacterTeam::Human); // 其他玩家是人
 		}
+	}
+}
+
+void ATEGameModeBase::KickAllPlayer() {
+	for(ATEPlayerController* Controller : ConnectedControllers) {
+		Controller->ClientTravel(TEXT("127.0.0.1"), TRAVEL_Absolute);
 	}
 }
 

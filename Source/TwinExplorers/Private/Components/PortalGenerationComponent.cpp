@@ -12,58 +12,79 @@
 // Sets default values for this component's properties
 UPortalGenerationComponent::UPortalGenerationComponent()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = false;
 
-	// ...
 	DetectionDistance = 2000.f;
-
 	bIsInitialized = false;
-	bIsGenerating = false;
+	bIsGeneratingPortal1 = false;
+	bIsGeneratingPortal2 = false;
 }
-
 
 // Called when the game starts
 void UPortalGenerationComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if(GetOwnerRole() == ROLE_Authority) {
+	if (GetOwnerRole() == ROLE_Authority) {
 		Owner = Cast<AMainCharacterBase>(GetOwner());
 		bIsInitialized = true;
 	}
-	
 }
 
-void UPortalGenerationComponent::Shoot() {
-	// 客户端执行射线检测
-	if(!bIsInitialized) { return; }	// 没初始化的情况下不执行
-	
+void UPortalGenerationComponent::ShootPortal1() {
+	if (!bIsInitialized) { return; }
+
 	FVector Start = Owner->GetCameraComponent()->GetComponentLocation();
 	FVector End = Start + Owner->GetCameraComponent()->GetForwardVector() * DetectionDistance;
 	FHitResult HitResult;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(Owner);
-	if(GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, SurfaceType, Params)) {		// 只有命中才会执行
-		// 检测当前探测到的位置是否合法
-		FVector NewLocation = HitResult.ImpactPoint + HitResult.ImpactNormal;		// 加上一个ImpactNormal是为了不要让Portal中的Plane紧挨着墙壁导致Z-fighting的问题
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, SurfaceType, Params)) {
+		FVector NewLocation = HitResult.ImpactPoint + HitResult.ImpactNormal;
 		FRotator NewRotation = UKismetMathLibrary::MakeRotFromX(HitResult.ImpactNormal);
-		if(!CheckRoom(HitResult, NewLocation, NewRotation)) {
+
+		if (!CheckRoom(HitResult, NewLocation, NewRotation) || !CheckOverlap(NewLocation, NewRotation)) {
 			return;
 		}
-		
-		if(!CheckOverlap(NewLocation, NewRotation)) {
-			return;
-		}
-		
-		// 生成或者改变Portal的位置，要在服务器上做
-		if(PortalRef) {
-			ChangePortalLocationAndRotation(NewLocation, NewRotation);
-		} else {
-			SpawnPortalAtLocationAndRotation(NewLocation, NewRotation);
+
+		if(bCanGeneratePortal1) {
+			SpawnPortal1AtLocationAndRotation(NewLocation, NewRotation);
 		}
 	}
+}
+
+void UPortalGenerationComponent::ShootPortal2() {
+	if (!bIsInitialized) { return; }
+
+	FVector Start = Owner->GetCameraComponent()->GetComponentLocation();
+	FVector End = Start + Owner->GetCameraComponent()->GetForwardVector() * DetectionDistance;
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(Owner);
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, SurfaceType, Params)) {
+		FVector NewLocation = HitResult.ImpactPoint + HitResult.ImpactNormal;
+		FRotator NewRotation = UKismetMathLibrary::MakeRotFromX(HitResult.ImpactNormal);
+
+		if (!CheckRoom(HitResult, NewLocation, NewRotation) || !CheckOverlap(NewLocation, NewRotation)) {
+			return;
+		}
+
+		if (bCanGeneratePortal2) {
+			SpawnPortal2AtLocationAndRotation(NewLocation, NewRotation);
+		}
+	}
+}
+
+void UPortalGenerationComponent::ResetOnServer_Implementation() {
+	bCanGeneratePortal1 = true;
+	bCanGeneratePortal2 = true;
+	PortalRef1 = nullptr;
+	PortalRef2 = nullptr;
+}
+
+void UPortalGenerationComponent::Reset() {
+	// 在服务器上Reset
+	ResetOnServer();
 }
 
 bool UPortalGenerationComponent::CheckRoom(const FHitResult& HitResult, FVector& ValidLocation, const FRotator& ValidRotation, int RecursionDepth) {
@@ -83,7 +104,9 @@ bool UPortalGenerationComponent::CheckRoom(const FHitResult& HitResult, FVector&
 bool UPortalGenerationComponent::CheckRoom(const FHitResult& HitResult, FVector& ValidLocation,
 	int RecursionDepth, const FVector& Up, const FVector& Down, const FVector& Left, const FVector& Right) {
 
-	if(RecursionDepth >= 10) { return false; }		// 10 = 1 / 0.1(整体 / 每次的偏移量) 这样就能保证在玩家射到最边缘的时候能找到一个最极限的值
+	if (RecursionDepth >= 10) { 
+		return false; 
+	}		// 最大递归深度，避免无限递归
 
 	// 检测目标位置是否上下左右都有足够的空间，如果没有，则找到一个，否则返回false
 	FVector DetectionMiddle = ValidLocation + 25 * HitResult.Normal;		// 这个是要检测的中心点
@@ -100,19 +123,43 @@ bool UPortalGenerationComponent::CheckRoom(const FHitResult& HitResult, FVector&
 	bool bRightClear = GetWorld()->LineTraceSingleByChannel(RightHit, DetectionMiddle + Right, DetectionMiddle + Right + DetectionDir, SurfaceType, Params);
 
 	// 如果本轮检测通过，返回true
-	if(bUpClear && bDownClear && bLeftClear && bRightClear) {
+	if (CheckIfIsARoom(UpHit, DownHit, RightHit, LeftHit)) {
 		return true;
 	}
 	
-	// 找到一个合适的位置
+	// 找到一个合适的位置并判断是否需要调整
 	FVector Offset = FVector::ZeroVector;
-	if (!bUpClear) { Offset += Down * 0.1f; }  // 如果上方空间不足，向下调整
-	if (!bDownClear) { Offset += Up * 0.1f; }  // 如果下方空间不足，向上调整
-	if (!bLeftClear) { Offset += Right * 0.1f; }  // 如果左方空间不足，向右调整
-	if (!bRightClear) { Offset += Left * 0.1f; }  // 如果右方空间不足，向左调整
+	if (!bUpClear || (UpHit.GetActor() && UpHit.GetActor() != HitResult.GetActor())) { 
+		Offset += Down * 0.1f; 
+	}  // 如果上方空间不足或者命中的是不同的Actor，向下调整
 
+	if (!bDownClear || (DownHit.GetActor() && DownHit.GetActor() != HitResult.GetActor())) { 
+		Offset += Up * 0.1f; 
+	}  // 如果下方空间不足或者命中的是不同的Actor，向上调整
+
+	if (!bLeftClear || (LeftHit.GetActor() && LeftHit.GetActor() != HitResult.GetActor())) { 
+		Offset += Right * 0.1f; 
+	}  // 如果左方空间不足或者命中的是不同的Actor，向右调整
+
+	if (!bRightClear || (RightHit.GetActor() && RightHit.GetActor() != HitResult.GetActor())) { 
+		Offset += Left * 0.1f; 
+	}  // 如果右方空间不足或者命中的是不同的Actor，向左调整
+
+	// 更新有效位置并递归调用自身
 	ValidLocation += Offset;
-	return CheckRoom(HitResult, ValidLocation, 0, Up, Down, Left, Right);
+	return CheckRoom(HitResult, ValidLocation, RecursionDepth + 1, Up, Down, Left, Right);
+}
+
+bool UPortalGenerationComponent::CheckIfIsARoom(const FHitResult& Up, const FHitResult& Down, const FHitResult& Right,
+	const FHitResult& Left) {
+
+	// 判断四个是否都命中同一个Actor
+	bool bIsSameSurface = Up.GetActor() != nullptr &&
+                              Up.GetActor() == Down.GetActor() &&
+                              Up.GetActor() == Right.GetActor() &&
+                              Up.GetActor() == Left.GetActor();
+	
+	return Up.bBlockingHit && Down.bBlockingHit && Right.bBlockingHit && Left.bBlockingHit && bIsSameSurface;
 }
 
 bool UPortalGenerationComponent::CheckOverlap(const FVector& NewLocation, const FRotator& NewRotation) const {
@@ -125,31 +172,48 @@ bool UPortalGenerationComponent::CheckOverlap(const FVector& NewLocation, const 
 	return !GetWorld()->SweepSingleByChannel(HitResult, NewLocation, NewLocation, NewRotation.Quaternion(), PortalOverlapDetectionType, Box);
 }
 
-void UPortalGenerationComponent::SpawnPortalAtLocationAndRotation_Implementation(const FVector& NewLocation,
-                                                                                 const FRotator& NewRotation) {
-	if(bIsGenerating) { return; }
-	bIsGenerating = true;
+void UPortalGenerationComponent::SpawnPortal1AtLocationAndRotation_Implementation(const FVector& NewLocation, const FRotator& NewRotation) {
+	if (!bCanGeneratePortal1) { return; }
+	if (bIsGeneratingPortal1) { return; }
+	bIsGeneratingPortal1 = true;
+
 	FTransform Transform;
 	Transform.SetLocation(NewLocation);
 	Transform.SetRotation(NewRotation.Quaternion());
-	Transform.SetScale3D({1.0, 1.0, 1.0});
-	PortalRef = GetWorld()->SpawnActorDeferred<APortalV2>(PortalClass, Transform, Owner, Owner, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	PortalRef->FinishSpawning(Transform);
-	bIsGenerating = false;
+	Transform.SetScale3D(FVector(1.0f, 1.0f, 1.0f));
+
+	PortalRef1 = GetWorld()->SpawnActorDeferred<APortalV2>(PortalClass, Transform, Owner, Owner, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	PortalRef1->FinishSpawning(Transform);
+
+	bCanGeneratePortal1 = false;
+	bIsGeneratingPortal1 = false;
 }
 
-void UPortalGenerationComponent::ChangePortalLocationAndRotation_Implementation(const FVector& NewLocation,
-	const FRotator& NewRotation) {
-	if(bIsGenerating) { return; }
-	bIsGenerating = true;
-	PortalRef->SetActorLocationAndRotation(NewLocation, NewRotation);
-	bIsGenerating = false;
+void UPortalGenerationComponent::SpawnPortal2AtLocationAndRotation_Implementation(const FVector& NewLocation, const FRotator& NewRotation) {
+	if (!bCanGeneratePortal2) { return; }
+	if (bIsGeneratingPortal2) { return; }
+	bIsGeneratingPortal2 = true;
+
+	FTransform Transform;
+	Transform.SetLocation(NewLocation);
+	Transform.SetRotation(NewRotation.Quaternion());
+	Transform.SetScale3D(FVector(1.0f, 1.0f, 1.0f));
+
+	PortalRef2 = GetWorld()->SpawnActorDeferred<APortalV2>(PortalClass, Transform, Owner, Owner, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	PortalRef2->FinishSpawning(Transform);
+
+	bCanGeneratePortal2 = false;
+	bIsGeneratingPortal2 = false;
 }
 
-void UPortalGenerationComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
+void UPortalGenerationComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(UPortalGenerationComponent, Owner, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(UPortalGenerationComponent, bIsInitialized, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(UPortalGenerationComponent, PortalRef, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(UPortalGenerationComponent, PortalRef1, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(UPortalGenerationComponent, PortalRef2, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(UPortalGenerationComponent, bCanGeneratePortal1, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(UPortalGenerationComponent, bCanGeneratePortal2, COND_OwnerOnly);
 }

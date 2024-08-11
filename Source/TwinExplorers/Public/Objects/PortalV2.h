@@ -93,6 +93,9 @@ public:
 
 	UFUNCTION()
 	void LeavePortal(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	UFUNCTION(BlueprintCallable)
+	static void Relink(APortalV2* Portal1, APortalV2* Portal2);
 	
 private:
 	UFUNCTION(Server, Reliable)

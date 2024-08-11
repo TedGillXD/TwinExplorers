@@ -56,12 +56,29 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UPhysicsConstraintComponent* PhysicsConstraint;
+	
 protected:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CameraPitch)
 	float CameraPitch;
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CharacterTeam)
 	ECharacterTeam CharacterTeam;	// 角色队伍类型
+
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	bool bIsAttacking;		// 是否正在攻击
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Team Props")
+	UAnimMontage* AttackMontage;		// 攻击动画
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Team Props")
+	float AttackPlayRate;				// 攻击动画的播放倍率
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Team Props")
+	UMaterialInterface* EnemyShirtMaterial;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Team Props")
+	UMaterialInterface* HumanShirtMaterial;
+
 	
 public:
 	// Sets default values for this character's properties
@@ -100,11 +117,22 @@ public:
 	void DragItemReleased();
 
 	UFUNCTION(BlueprintCallable)
-	void CancelUseItemPressed();
+	void UseSkillPressed();
 
 	UFUNCTION(BlueprintCallable)
-	void CancelUseItemReleased();
-	
+	void UseSkillReleased();
+
+	UFUNCTION(Server, Reliable)
+	void AttackOnServer();
+	void Attack();
+
+	UFUNCTION(BlueprintCallable)
+	void AttackDetection();
+
+	// 在服务器中用来通知其他所有的客户端中对应的角色播放攻击动画
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayAttackMontage();
+
 protected:
 	UFUNCTION()
 	void OnRep_CameraPitch() const;

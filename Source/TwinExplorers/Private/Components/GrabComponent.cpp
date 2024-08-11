@@ -163,7 +163,7 @@ void UGrabComponent::AddRequireComponentsOnServer_Implementation() {
 		GrabItemMeshComp->RegisterComponent();
 		GrabItemPhysicsConstraintComp->RegisterComponent();
 
-		GrabItemMeshComp->AttachToComponent(Owner->GetCameraComponent(), FAttachmentTransformRules::SnapToTargetIncludingScale);
+		GrabItemMeshComp->AttachToComponent(Owner->GetRootComponent(), FAttachmentTransformRules::SnapToTargetIncludingScale);
 		GrabItemPhysicsConstraintComp->AttachToComponent(GrabItemMeshComp, FAttachmentTransformRules::SnapToTargetIncludingScale);
 
 		// 设置两个组件的网络复制

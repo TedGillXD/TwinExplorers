@@ -36,6 +36,9 @@ protected:
 	int32 ItemSpawnInterval;		// 道具生成间隔时间
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="GameRules")
+	int32 PortalRelinkInterval;			// 传送门重新链接倒计时
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="GameRules")
 	TArray<TSubclassOf<AItemActorBase>> ItemClasses;		// 可以用来生成道具的Item Class
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="GameRules")
@@ -58,12 +61,19 @@ protected:
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 
 private:
+	// 回合开始
 	void StartRoundPrepare();
 	void StartRound();
-	void SpawnItem();
-	void EndRound();
 	void SetPlayerRoles();
 	void AssignCharacterTeam(AMainCharacterBase* Character, int32 Index);
+
+	// 回合中事件
+	void SpawnItem();
+	void RelinkPortals() const;
+
+	// 回合结束事件
+	void EndRound();
+	void KickAllPlayer();
 
 	void IntoPrepareStage();
 	void PrepareCountDown();

@@ -10,6 +10,8 @@
 #include "UObject/NoExportTypes.h"
 #include "ItemActorBase.generated.h"
 
+class USphereComponent;
+
 UCLASS()
 class AItemActorBase : public ADragableActorBase, public IInteractableInterface {
 	GENERATED_BODY()
@@ -23,6 +25,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="ItemActorBase Comp")
 	UStaticMeshComponent* ItemMesh;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="ItemActorBase Comp")
+	USphereComponent* PickupSphere;			// 用来检测拾起Item的Sphere
 	
 protected:
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="ItemActorBase Props")
@@ -35,7 +40,9 @@ protected:
 	UMaterialInterface* UnfocusedMaterial;
 
 public:
-
+	UFUNCTION()
+	void PickupItem(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	
 	virtual bool CanInteract_Implementation(const FItem& InHandItem) override;
 	virtual void Interact_Implementation(APawn* FromPawn, const FItem& InHandItem) override;
 	virtual FString GetInteractString_Implementation() override;

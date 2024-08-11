@@ -1,3 +1,4 @@
+
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
@@ -27,6 +28,19 @@ void AIcePillar::BeginPlay()
 	Current = OriginalLocation.Z - 100;
 	Target = OriginalLocation.Z;
 	PillarMeshComp->SetWorldLocation({ OriginalLocation.X, OriginalLocation.Y, OriginalLocation.Z - 100 });
+
+	if(HasAuthority()) {
+		FTimerHandle TimerHandle_SelfDestroy;
+		GetWorldTimerManager().SetTimer(TimerHandle_SelfDestroy, FTimerDelegate::CreateLambda([this]() -> void {
+			this->Destroy();
+		}), DestroyTime, false);
+	}
+}
+
+void AIcePillar::Destroyed() {
+	Super::Destroyed();
+
+	GetWorldTimerManager().ClearTimer(TimerHandle_LifeSpanExpired);
 }
 
 // Called every frame

@@ -5,6 +5,7 @@
 
 #include "Characters/MainCharacterBase.h"
 #include "Components/InventoryComponent.h"
+#include "Components/SphereComponent.h"
 
 AItemActorBase::AItemActorBase() {
 	AsRoot = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
@@ -13,12 +14,25 @@ AItemActorBase::AItemActorBase() {
 	ItemMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ItemMeshComp"));
 	ItemMesh->SetupAttachment(AsRoot);
 
+	PickupSphere = CreateDefaultSubobject<USphereComponent>(TEXT("PickupSphere"));
+	PickupSphere->SetupAttachment(ItemMesh);
+	PickupSphere->OnComponentBeginOverlap.AddDynamic(this, &AItemActorBase::PickupItem);
+
 	// 开启网络同步
 	this->bReplicates = true;
 	ItemMesh->SetIsReplicated(true);
 
 	NetUpdateFrequency = 10.f;
 	MinNetUpdateFrequency = 2.f;
+}
+
+void AItemActorBase::PickupItem(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+	if(!HasAuthority()) { return; }
+	if(!OtherActor->IsA<ACharacter>()) { return; }
+
+	// 拾起道具
+	Execute_Interact(this, Cast<ACharacter>(OtherActor), EmptyItem);
 }
 
 bool AItemActorBase::CanInteract_Implementation(const FItem& InHandItem) {

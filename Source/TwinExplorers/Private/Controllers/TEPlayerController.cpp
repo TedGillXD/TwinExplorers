@@ -30,19 +30,11 @@ void ATEPlayerController::DragItemReleased() {
 	}
 }
 
-void ATEPlayerController::CancelUseItemPressed() {
+void ATEPlayerController::UseSkillPressed() {
 	if(!GetCharacter()) { return; }
 
 	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->CancelUseItemPressed();
-	}
-}
-
-void ATEPlayerController::CancelUseItemReleased() {
-	if(!GetCharacter()) { return; }
-
-	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->CancelUseItemReleased();
+		CharacterBase->UseSkillPressed();
 	}
 }
 
@@ -51,9 +43,15 @@ void ATEPlayerController::Move(const FInputActionValue& Value) {
 
 	FVector2D MovementVector = Value.Get<FVector2D>();
 	
+	const FRotator Rotation = GetControlRotation();
+	const FRotator YawRotation(0, Rotation.Yaw, 0);
+	
+	const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+	const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+	
 	// 移动
-	GetPawn()->AddMovementInput(GetPawn()->GetActorForwardVector(), MovementVector.Y);
-	GetPawn()->AddMovementInput(GetPawn()->GetActorRightVector(), MovementVector.X);
+	GetPawn()->AddMovementInput(ForwardDirection, MovementVector.Y);
+	GetPawn()->AddMovementInput(RightDirection, MovementVector.X);
 }
 	
 void ATEPlayerController::Look(const FInputActionValue& Value) {
@@ -86,6 +84,14 @@ void ATEPlayerController::StopJump() {
 	GetCharacter()->StopJumping();
 }
 
+void ATEPlayerController::Attack() {
+	if(!GetCharacter()) { return; }
+
+	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
+		CharacterBase->Attack();
+	}
+}
+
 void ATEPlayerController::BeginPlay() {
 	Super::BeginPlay();
 
@@ -106,8 +112,10 @@ void ATEPlayerController::SetupInputComponent() {
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Triggered, this, &ATEPlayerController::Interact);
 		EnhancedInputComponent->BindAction(DragItemPressedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::DragItemPressed);
 		EnhancedInputComponent->BindAction(DragItemReleaseAction, ETriggerEvent::Triggered, this, &ATEPlayerController::DragItemReleased);
-		EnhancedInputComponent->BindAction(UseToolPressedAction, ETriggerEvent::Triggered, this, &ATEPlayerController::CancelUseItemPressed);
-		EnhancedInputComponent->BindAction(UseToolReleaseAction, ETriggerEvent::Triggered, this, &ATEPlayerController::CancelUseItemReleased);
+		EnhancedInputComponent->BindAction(UseSkillAction, ETriggerEvent::Triggered, this, &ATEPlayerController::UseSkillPressed);
+
+		// 攻击
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ATEPlayerController::Attack);
 	}
 }
 
@@ -117,6 +125,11 @@ void ATEPlayerController::UpdateCountDown_Implementation(int32 RoundTime) {
 
 void ATEPlayerController::UpdateCountDownTitle_Implementation(const FString& String, int32 StageTime) {
 	OnRoundTitleChanged.Broadcast(String, StageTime);
+}
+
+void ATEPlayerController::EndRound_Implementation(bool bIsHumanWin) {
+	OnRoundEnd.Broadcast(bIsHumanWin);
+	DisableInput(this);
 }
 
 void ATEPlayerController::BindInputContext() const {

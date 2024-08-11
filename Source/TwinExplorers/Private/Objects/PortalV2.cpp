@@ -41,13 +41,15 @@ APortalV2::APortalV2()
 	PlayerDetection->OnComponentEndOverlap.AddDynamic(this, &APortalV2::LeavePortal);
 	
 	bIsInit = false;
-	bIsEnabled = false;
+	bIsEnabled = true;
 }
 
 // Called when the game starts or when spawned
 void APortalV2::BeginPlay() {
 	Super::BeginPlay();
 
+	// 让这个Actor在最后更新，否则会出现抖动
+	this->SetTickGroup(TG_PostUpdateWork);
 	if(!HasAuthority()) {
 		if(LinkedPortal) {
 			Init();
@@ -91,7 +93,7 @@ void APortalV2::Tick(float DeltaTime) {
 
 	if(!HasAuthority()) {
 		if(LocalCharacter && LinkedPortal && bIsInit) {
-			SetCurrentOptimizationLevel(GetOptimizationLevel());
+			// SetCurrentOptimizationLevel(GetOptimizationLevel());
 			UpdateSceneCapture(LocalCharacter->GetCameraComponent()->GetComponentTransform());
 			DoViewportResize();
 		} 
@@ -110,7 +112,7 @@ void APortalV2::TriggerTeleport(UPrimitiveComponent* OverlappedComponent, AActor
 		FVector TargetVelocity = GetUpdatedVelocity(ITransportableInterface::Execute_GetOriginalVelocity(OtherActor));
 
 		FVector X, Y, Z;
-		UKismetMathLibrary::GetAxes(OtherActor->GetActorRotation(), X, Y, Z);
+		UKismetMathLibrary::GetAxes(OtherActor->GetActorRotation(), X, Y, Z);			// TODO: 这里有问题
 		FRotator TargetRotation = UKismetMathLibrary::MakeRotationFromAxes(
 			GetTargetRotationAxe(GetTargetRotationAxe(X)) * -1.f,
 			GetTargetRotationAxe(GetTargetRotationAxe(Y)) * -1.f,
@@ -126,15 +128,29 @@ void APortalV2::LeavePortal(UPrimitiveComponent* OverlappedComponent, AActor* Ot
 	bIsTeleporting = false;
 }
 
-void APortalV2::Init() {
-	PortalMatInstance = UKismetMaterialLibrary::CreateDynamicMaterialInstance(GetWorld(), PortalMat);
-	if(!PortalMatInstance) { return; }
-	PortalPlane->SetMaterial(0, PortalMatInstance);
+void APortalV2::Relink(APortalV2* Portal1, APortalV2* Portal2) {
+	// 将两个传送门进行链接
+	if (!Portal1 || !Portal2 || Portal1 == Portal2) { return; }
 
-	FVector2D ViewportSize;
-	GEngine->GameViewport->GetViewportSize(ViewportSize);
-	PortalRT = UKismetRenderingLibrary::CreateRenderTarget2D(GetWorld(), ViewportSize.X, ViewportSize.Y);
-	if(!PortalRT) { return; }
+	if(Portal1->HasAuthority() && Portal2->HasAuthority()) {
+		Portal1->LinkPortal(Portal2);
+		Portal2->LinkPortal(Portal1);
+	}
+}
+
+void APortalV2::Init() {
+	if(!PortalMatInstance) {
+		PortalMatInstance = UKismetMaterialLibrary::CreateDynamicMaterialInstance(GetWorld(), PortalMat);
+		if(!PortalMatInstance) { return; }
+		PortalPlane->SetMaterial(0, PortalMatInstance);
+	}
+
+	if(!PortalRT) {
+		FVector2D ViewportSize;
+		GEngine->GameViewport->GetViewportSize(ViewportSize);
+		PortalRT = UKismetRenderingLibrary::CreateRenderTarget2D(GetWorld(), ViewportSize.X, ViewportSize.Y);
+		if(!PortalRT) { return; }
+	}
 
 	PortalMatInstance->SetTextureParameterValue(FName("Texture"), PortalRT);
 	// TODO: 修改门框颜色
@@ -154,7 +170,7 @@ void APortalV2::LinkPortal(APortalV2* OtherPortal) {
 		OtherPortal->LinkedPortal = this;
 		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, "Linked!");
 	} else {
-		LinkPortal(OtherPortal);
+		LinkPortalOnServer(OtherPortal);
 	}
 }
 
@@ -246,8 +262,9 @@ EOptimizedLevel APortalV2::GetOptimizationLevel() const {
 	// FVector2D ScreenLocation;
 	// bool bIsOnScreen = LocalPlayerController->ProjectWorldLocationToScreen(GetActorLocation(), ScreenLocation);
 	// if(!bIsOnScreen) { return Level3; }
-	
-	float Angle = FVector::DotProduct(LocalCharacter->GetActorForwardVector() * -1.f, this->GetActorForwardVector());
+
+	FVector CameraHorizontalDir{ LocalCharacter->GetCameraComponent()->GetForwardVector().X, LocalCharacter->GetCameraComponent()->GetForwardVector().Y, 0.0 };
+	float Angle = FVector::DotProduct(CameraHorizontalDir * -1.f, this->GetActorForwardVector());
 	float Distance = (LocalCharacter->GetActorLocation() - this->GetActorLocation()).Length();
 	if(Angle <= 0) {	// 大于等于90°
 		return Level3;
@@ -305,7 +322,7 @@ void APortalV2::SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel) {
 		
 	case Level3:		// 不渲染
 	default:
-		DisableSceneCapture();
+		LinkedPortal->DisableSceneCapture();
 		break;
 	}
 
