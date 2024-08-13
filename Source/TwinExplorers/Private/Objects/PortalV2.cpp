@@ -93,15 +93,37 @@ void APortalV2::Tick(float DeltaTime) {
 
 	if(!HasAuthority()) {
 		if(LocalCharacter && LinkedPortal && bIsInit) {
-			// SetCurrentOptimizationLevel(GetOptimizationLevel());
-			UpdateSceneCapture(LocalCharacter->GetCameraComponent()->GetComponentTransform());
-			DoViewportResize();
+			// 获取当前优化级别
+			EOptimizedLevel CurrentLevel = GetOptimizationLevel(LocalCharacter->GetCameraComponent()->GetComponentTransform(), LocalCharacter->GetCameraComponent()->GetForwardVector(), LocalCharacter->GetCameraComponent()->FieldOfView);
+			// GEngine->AddOnScreenDebugMessage(-1, 0.0, FColor::Blue, GetName() + (bIsEnabled ? " : True" : " : False") + "  " + FString::FromInt(CurrentLevel));
+			// 仅在优化级别变化时更新状态
+			if (CurrentLevel != LastLevel) {
+				SetCurrentOptimizationLevel(CurrentLevel);
+			}
+			
+			if(bIsEnabled) {
+				UpdateSceneCapture(LocalCharacter->GetCameraComponent()->GetComponentTransform());
+			}
+			
+			FVector2D CurrentViewportSize;
+			GEngine->GameViewport->GetViewportSize(CurrentViewportSize);
+
+			if (!CurrentViewportSize.Equals(LastViewportSize)) {
+				DoViewportResize();
+				LastViewportSize = CurrentViewportSize;  // 更新缓存的视口大小
+			}
 		} 
 	}
 }
 
+FVector APortalV2::CalculateTargetAxes(FVector X) const {
+	FVector temp = UKismetMathLibrary::InverseTransformDirection(LinkedPortal->GetActorTransform(), X);
+	temp = UKismetMathLibrary::MirrorVectorByNormal(temp, FVector{ 1.0, 0.0, 0.0 });
+	return UKismetMathLibrary::MirrorVectorByNormal(temp, FVector{ 0.0, 1.0, 0.0 });
+}
+
 void APortalV2::TriggerTeleport(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+                                UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
 
 	if(HasAuthority() && LinkedPortal && !bIsTeleporting) {
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, "Teleport!");
@@ -110,14 +132,11 @@ void APortalV2::TriggerTeleport(UPrimitiveComponent* OverlappedComponent, AActor
 
 		FVector TargetLocation = LinkedPortal->PlayerDetection->GetComponentLocation();
 		FVector TargetVelocity = GetUpdatedVelocity(ITransportableInterface::Execute_GetOriginalVelocity(OtherActor));
-
-		FVector X, Y, Z;
-		UKismetMathLibrary::GetAxes(OtherActor->GetActorRotation(), X, Y, Z);			// TODO: 这里有问题
-		FRotator TargetRotation = UKismetMathLibrary::MakeRotationFromAxes(
-			GetTargetRotationAxe(GetTargetRotationAxe(X)) * -1.f,
-			GetTargetRotationAxe(GetTargetRotationAxe(Y)) * -1.f,
-			GetTargetRotationAxe(GetTargetRotationAxe(Z)) * -1.f
-		);
+		
+		FRotator OriginalRotation = OtherActor->GetActorRotation();
+		FRotator InverseRotation =	OriginalRotation.Vector().MirrorByVector(GetActorForwardVector()).MirrorByVector(GetActorRightVector()).Rotation();
+		FRotator PortalRotationDelta = LinkedPortal->GetActorRotation() - GetActorRotation();
+		FRotator TargetRotation = UKismetMathLibrary::ComposeRotators(PortalRotationDelta, InverseRotation);
 
 		ITransportableInterface::Execute_Transport(OtherActor, TargetLocation, TargetRotation, TargetVelocity);
 	}
@@ -168,7 +187,6 @@ void APortalV2::LinkPortal(APortalV2* OtherPortal) {
 	if(HasAuthority()) {
 		LinkedPortal = OtherPortal;
 		OtherPortal->LinkedPortal = this;
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, "Linked!");
 	} else {
 		LinkPortalOnServer(OtherPortal);
 	}
@@ -189,8 +207,6 @@ void APortalV2::SetClipPlane() const {
 }
 
 void APortalV2::UpdateSceneCapture(const FTransform& CameraTransform) const {
-	if(!bIsEnabled) { return; }		// 如果现在没启用则跳过
-	
 	// 计算目标位置
 	FTransform Current = GetActorTransform();
 	FTransform temp;
@@ -218,8 +234,8 @@ FVector APortalV2::GetTargetRotationAxe(const FVector& Axe) const {
 }
 
 void APortalV2::DoViewportResize() const {
-	if(!bIsEnabled) { return; }
-	
+	if (!bIsEnabled) { return; }
+    
 	FVector2D ViewportSize;
 	GEngine->GameViewport->GetViewportSize(ViewportSize);
 
@@ -227,6 +243,7 @@ void APortalV2::DoViewportResize() const {
 		return;
 	}
 
+	// 获取当前的缩放比例，这个缩放比例是基于距离动态调整的
 	float Scale = GetScale();
 	int32 TargetWidth = FMath::RoundToInt(ViewportSize.X * Scale);
 	int32 TargetHeight = FMath::RoundToInt(ViewportSize.Y * Scale);
@@ -236,7 +253,9 @@ void APortalV2::DoViewportResize() const {
 		return;
 	}
 
-	if (PortalRT->SizeX != TargetWidth || PortalRT->SizeY != TargetHeight) {
+	// 仅当目标尺寸与当前尺寸不同，且超过一定阈值时，才进行Resize
+	constexpr int32 ResizeThreshold = 2; // 设置一个阈值，防止过于频繁的微小调整
+	if (FMath::Abs(PortalRT->SizeX - TargetWidth) > ResizeThreshold || FMath::Abs(PortalRT->SizeY - TargetHeight) > ResizeThreshold) {
 		PortalRT->ResizeTarget(TargetWidth, TargetHeight);
 	}
 }
@@ -258,51 +277,57 @@ void APortalV2::MarkTeleporting() {
     }
 }
 
-EOptimizedLevel APortalV2::GetOptimizationLevel() const {
-	// FVector2D ScreenLocation;
-	// bool bIsOnScreen = LocalPlayerController->ProjectWorldLocationToScreen(GetActorLocation(), ScreenLocation);
-	// if(!bIsOnScreen) { return Level3; }
+EOptimizedLevel APortalV2::GetOptimizationLevel(const FTransform& CameraTransform, const FVector& CameraForward, int CameraFOV) const {
+	// 可见性检查
+	FVector CameraToPortal = (this->GetActorLocation() - CameraTransform.GetLocation());
+	CameraToPortal.Normalize();
+	const float HalfFOVRadians = FMath::DegreesToRadians(CameraFOV + 20.f / 2.0f);
+	const float CosHalfFOV = FMath::Cos(HalfFOVRadians);
+	const float ViewDotProduct = FVector::DotProduct(CameraForward, CameraToPortal);
+	if (ViewDotProduct < CosHalfFOV) {
+		return Level3;  // Portal不在视野范围内
+	}
+	
+	// 判断Portal到角色摄像机和Portal法线之间的夹角
+	FVector PortalToCamera = CameraTransform.GetLocation() - this->GetActorLocation();
+	PortalToCamera.Z = 0.0;
+	PortalToCamera.Normalize();
+	const float DotProduct = FVector::DotProduct(PortalToCamera, this->GetActorForwardVector());
+	const float Distance = (CameraTransform.GetLocation() - this->GetActorLocation()).Length();
 
-	FVector CameraHorizontalDir{ LocalCharacter->GetCameraComponent()->GetForwardVector().X, LocalCharacter->GetCameraComponent()->GetForwardVector().Y, 0.0 };
-	float Angle = FVector::DotProduct(CameraHorizontalDir * -1.f, this->GetActorForwardVector());
-	float Distance = (LocalCharacter->GetActorLocation() - this->GetActorLocation()).Length();
-	if(Angle <= 0) {	// 大于等于90°
+	// 大于等于90°
+	if (DotProduct < 0) {
 		return Level3;
 	}
 
 	// 大于45°
-	if(Angle <= 0.707) {
-		if (Distance < 1000.f) { return Level1; }  // 中高精度 
-		if (Distance < 2000.f) { return Level2; }  // 中等精度
-		return Level3;  // 低精度
+	if (DotProduct <= 0.707) {
+		if (Distance < 1000.f) { return Level1; }  // 中高精度
+		return Level2;
+		// return Level3;  // 低精度
 	}
 
 	// 小于45°
-	if (Distance < 1000.f) {  return Level0; }  // 高精度
+	if (Distance < 1000.f) { return Level0; }  // 高精度
 	if (Distance < 2000.f) { return Level1; }  // 中高精度
-	if (Distance < 3000.f) { return Level2; }  // 中等精度
-	return Level3;  // 低精度
+	return Level2;
 }
 
 void APortalV2::EnableSceneCapture() {
 	if(bIsEnabled) { return; }
-	PortalCamera->SetComponentTickEnabled(true);
-	PortalCamera->SetVisibility(true);
-	PortalCamera->bCaptureEveryFrame = true;
-	PortalCamera->bCaptureOnMovement = true;
-	PortalCamera->bAlwaysPersistRenderingState = true;
-	PortalCamera->CaptureScene(); // 手动捕捉一次
+	// PortalCamera->SetComponentTickEnabled(true);
+	// PortalCamera->SetVisibility(true);
+	// PortalCamera->bCaptureEveryFrame = true;
+	// PortalCamera->bCaptureOnMovement = true;
+	// PortalCamera->bAlwaysPersistRenderingState = true;
+	// PortalCamera->CaptureScene(); // 手动捕捉一次
 	bIsEnabled = true;
 }
 
 void APortalV2::DisableSceneCapture() {
-	if(!bIsEnabled) { return; }
-	PortalCamera->SetComponentTickEnabled(false);
-	PortalCamera->SetVisibility(false);
-	PortalCamera->bCaptureEveryFrame = false;
-	PortalCamera->bCaptureOnMovement = false;
-	PortalCamera->bAlwaysPersistRenderingState = false;
-	bIsEnabled = false;
+	if(LinkedPortal) {
+		LinkedPortal->PortalRT->ResizeTarget(1.f, 1.f);  // 设置为1.f
+	}
 }
 
 void APortalV2::SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel) {
@@ -319,40 +344,41 @@ void APortalV2::SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel) {
 		LinkedPortal->EnableSceneCapture();
 		LinkedPortal->SetToLevel2Resolution();
 		break;
-		
-	case Level3:		// 不渲染
+	case Level3:  // 不渲染
 	default:
 		LinkedPortal->DisableSceneCapture();
 		break;
 	}
 
 	LastLevel = OptimizedLevel;
-	GEngine->AddOnScreenDebugMessage(-1, 0.0, FColor::Blue, GetName() + (bIsEnabled ? " : True" : " : False") + "  " + FString::FromInt(OptimizedLevel));
 }
 
 void APortalV2::SetToLevel0Resolution() {
-	if(Level0 == LastLevel) { return; }
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
-	LinkedPortal->PortalRT->ResizeTarget(Size.X, Size.Y);
+	if(LinkedPortal) {
+		LinkedPortal->PortalRT->ResizeTarget(Size.X, Size.Y);  // 使用原始分辨率
+	}
 }
 
 void APortalV2::SetToLevel1Resolution() {
-	if(Level0 == LastLevel) { return; }
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
-	LinkedPortal->PortalRT->ResizeTarget(Size.X * 0.5f, Size.Y * 0.5f);
+	if(LinkedPortal) {
+		LinkedPortal->PortalRT->ResizeTarget(Size.X * 0.5f, Size.Y * 0.5f);  // 原始分辨率的0.5
+	}
 }
 
 void APortalV2::SetToLevel2Resolution() {
-	if(Level0 == LastLevel) { return; }
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
-	LinkedPortal->PortalRT->ResizeTarget(Size.X * 0.25f, Size.Y * 0.25f);
+	if(LinkedPortal) {
+		LinkedPortal->PortalRT->ResizeTarget(Size.X * 0.5f, Size.Y * 0.5f);  // 分辨率调整为原始的0.5，并降低采样帧率
+	}
 }
 
 float APortalV2::GetScale() const {
-	if(LastLevel == Level0) { return 1.0; }
+	if(LastLevel == Level0) { return 1; }
 	if(LastLevel == Level1) { return 0.5; }
 	if(LastLevel == Level2) { return 0.25; }
 	return 0.f;

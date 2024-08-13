@@ -4,6 +4,7 @@
 #include "Contraptions/Mechanisms/JumpPad.h"
 
 #include "Components/BoxComponent.h"
+#include "Controllers/TEPlayerController.h"
 #include "GameFramework/Character.h"
 
 // Sets default values
@@ -39,10 +40,14 @@ void AJumpPad::HandleOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherA
 	if(HasAuthority()) {
 		ACharacter* PlayerCharacter = Cast<ACharacter>(OtherActor);
 		if (PlayerCharacter) {
+			ATEPlayerController* PlayerController = Cast<ATEPlayerController>(PlayerCharacter->GetController());
+			if(PlayerCharacter) {
+				PlayerController->PlaySoundAtLocationOnAllClient(JumpSound, OtherActor->GetActorLocation(), GetActorRotation());
+			}
+			
 			// 给射出方向增加一些随机偏移
-			FVector LaunchVelocity = FMath::VRandCone(GetActorUpVector(), FMath::DegreesToRadians(5.0f)) * JumpForce;
+			FVector LaunchVelocity = FMath::VRandCone(GetActorUpVector(), FMath::DegreesToRadians(10.f)) * JumpForce;
 			PlayerCharacter->LaunchCharacter(LaunchVelocity, true, true);
 		}
 	}
-	
 }

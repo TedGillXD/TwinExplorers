@@ -55,9 +55,15 @@ protected:
 	FTimerHandle TimerHandle_RoundEnd;	// 回合结束定时器
 	FTimerHandle TimerHandle_RoundCountDown;		// 回合中倒计时Handle
 	FTimerHandle TimerHandle_PrepareCountDown;		// 准备阶段倒计时
+	FTimerHandle TimerHandle_ItemSpawnCountDown;	// 道具生成倒计时
+
+	float CurrentRoundTimeLeft;			// 当前回合剩余时间
+	float CurrentStartWaitTimeLeft;		// 当前准备阶段剩余时间
+	float EventTimeLeft;			// 道具生成倒数剩余时间
 
 	virtual void BeginPlay() override;
 	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
+	virtual void Logout(AController* Exiting) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 
 private:
@@ -70,6 +76,7 @@ private:
 	// 回合中事件
 	void SpawnItem();
 	void RelinkPortals() const;
+	void ItemSpawnCountDown();
 
 	// 回合结束事件
 	void EndRound();
@@ -78,6 +85,8 @@ private:
 	void IntoPrepareStage();
 	void PrepareCountDown();
 	void CountDown();
+
+	void ResetGame();
 
 	bool AreAllPlayersInfected() const;
 

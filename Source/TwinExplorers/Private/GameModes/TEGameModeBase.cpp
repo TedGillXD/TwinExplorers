@@ -37,6 +37,13 @@ void ATEGameModeBase::HandleStartingNewPlayer_Implementation(APlayerController* 
 	}
 }
 
+void ATEGameModeBase::Logout(AController* Exiting) {
+	Super::Logout(Exiting);
+
+	// 当有玩家登出的时候移除服务器上的Controller
+	ConnectedControllers.Remove(Cast<ATEPlayerController>(Exiting));
+}
+
 AActor* ATEGameModeBase::ChoosePlayerStart_Implementation(AController* Player) {
 	TArray<AActor*> AvailablePlayerStarts;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), AvailablePlayerStarts);
@@ -59,13 +66,19 @@ void ATEGameModeBase::StartRoundPrepare() {
 void ATEGameModeBase::StartRound() {
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Round Start!"));
 	for(ATEPlayerController* Controller : ConnectedControllers) {
-		Controller->UpdateCountDownTitle(FString(TEXT("距离本回合结束还有")), StartWaitTime);
+		Controller->UpdateCountDownTitle(FString(TEXT("距离本回合结束还有")), RoundTime);
 	}
 	
-	GetWorldTimerManager().SetTimer(TimerHandle_ItemSpawn, this, &ATEGameModeBase::SpawnItem, ItemSpawnInterval, true, ItemSpawnInterval);		// 开始生成道具倒计时
-	GetWorldTimerManager().SetTimer(TimerHandle_RoundEnd, this, &ATEGameModeBase::EndRound, RoundTime, false);												// 回合结束倒计时
-	// TODO：传送门重新链接倒计时
-	GetWorldTimerManager().SetTimer(TimerHandle_RoundCountDown, this, &ATEGameModeBase::CountDown, 1.f, true);												// 关卡结束倒计时
+	GetWorldTimerManager().SetTimer(TimerHandle_ItemSpawn, this, &ATEGameModeBase::SpawnItem, ItemSpawnInterval, true);		// 开始生成道具倒计时
+	for(ATEPlayerController* Controller : ConnectedControllers) {
+		Controller->UpdateEventCountDownTitle(FString(TEXT("距离下一轮道具生成还有")), ItemSpawnInterval);
+	}
+	EventTimeLeft = ItemSpawnInterval;		// 重置EventTimeLeft
+	GetWorldTimerManager().SetTimer(TimerHandle_ItemSpawnCountDown, this, &ATEGameModeBase::ItemSpawnCountDown, 1.f, true);
+
+	CurrentRoundTimeLeft = RoundTime;			// 重置回合时间
+	GetWorldTimerManager().SetTimer(TimerHandle_RoundEnd, this, &ATEGameModeBase::EndRound, RoundTime, false);			// 回合结束倒计时
+	GetWorldTimerManager().SetTimer(TimerHandle_RoundCountDown, this, &ATEGameModeBase::CountDown, 1.f, true);			// 关卡结束倒计时
 }
 
 void ATEGameModeBase::SpawnItem() {
@@ -87,6 +100,8 @@ void ATEGameModeBase::SpawnItem() {
 
 	// 在选择的位置生成道具实例
 	GetWorld()->SpawnActor<AItemActorBase>(SelectedItemClass, SpawnLocation, SpawnRotation);
+
+	EventTimeLeft = ItemSpawnInterval;		// 重置倒计时
 }
 
 void ATEGameModeBase::RelinkPortals() const {
@@ -107,6 +122,15 @@ void ATEGameModeBase::RelinkPortals() const {
 		if (Portal1 && Portal2) {
 			APortalV2::Relink(Portal1, Portal2);
 		}
+	}
+}
+
+void ATEGameModeBase::ItemSpawnCountDown() {
+	if(EventTimeLeft < 0) { return; }
+	
+	EventTimeLeft--;
+	for(ATEPlayerController* Controller : ConnectedControllers) {
+		Controller->UpdateEventCountDown(EventTimeLeft);
 	}
 }
 
@@ -141,6 +165,9 @@ void ATEGameModeBase::EndRound() {
 
 	FTimerHandle TimerHandle_KickAllPlayers;
 	GetWorldTimerManager().SetTimer(TimerHandle_KickAllPlayers, this, &ATEGameModeBase::KickAllPlayer, 5.f, false);
+
+	// 重新开始一局游戏
+	ResetGame();
 }
 
 void ATEGameModeBase::SetPlayerRoles() {
@@ -176,7 +203,7 @@ void ATEGameModeBase::AssignCharacterTeam(AMainCharacterBase* Character, int32 I
 
 void ATEGameModeBase::KickAllPlayer() {
 	for(ATEPlayerController* Controller : ConnectedControllers) {
-		Controller->ClientTravel(TEXT("127.0.0.1"), TRAVEL_Absolute);
+		Controller->BackToMainMenuLevel();
 	}
 }
 
@@ -186,25 +213,32 @@ void ATEGameModeBase::IntoPrepareStage() {
 	for(ATEPlayerController* Controller : ConnectedControllers) {
 		Controller->UpdateCountDownTitle(FString(TEXT("距离正式开始还有")), StartWaitTime);
 	}
-	
+
+	CurrentStartWaitTimeLeft = StartWaitTime;			// 重置准备时间
 	GetWorldTimerManager().SetTimer(TimerHandle_RoundStart, this, &ATEGameModeBase::StartRoundPrepare, StartWaitTime, false);
 	GetWorldTimerManager().SetTimer(TimerHandle_PrepareCountDown, this, &ATEGameModeBase::PrepareCountDown, 1.f, true);
 }
 
 void ATEGameModeBase::PrepareCountDown() {
-	StartWaitTime--;
-
+	if(CurrentStartWaitTimeLeft <= 0) { return; }
+	
+	CurrentStartWaitTimeLeft--;
 	for(ATEPlayerController* Controller : ConnectedControllers) {
-		Controller->UpdateCountDown(StartWaitTime);
+		Controller->UpdateCountDown(CurrentStartWaitTimeLeft);
 	}
 }
 
 void ATEGameModeBase::CountDown() {
-	RoundTime--;
-
+	if(CurrentRoundTimeLeft <= 0) { return; }
+	
+	CurrentRoundTimeLeft--;
 	for(ATEPlayerController* Controller : ConnectedControllers) {
-		Controller->UpdateCountDown(RoundTime);
+		Controller->UpdateCountDown(CurrentRoundTimeLeft);
 	}
+}
+
+void ATEGameModeBase::ResetGame() {
+	
 }
 
 bool ATEGameModeBase::AreAllPlayersInfected() const {

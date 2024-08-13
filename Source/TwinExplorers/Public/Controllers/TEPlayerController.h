@@ -15,7 +15,12 @@ enum EInputDevice {
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRoundCountDownChanged, int32, LeftTimeInSecond);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnRoundTitleChanged, FString, NewTitle, int32, StageTimeInSecond);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEventCountDownChanged, int32, NextEventTimeLeft);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEventTitleChanged, FString, NewTitle, int32, StageTimeInSecond);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRoundEnd, bool, bIsHumanWin);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEscPressed);
 
 class UInputMappingContext;
 class UInputAction;
@@ -56,6 +61,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
 	UInputAction* AttackAction;			// 鬼的攻击事件
 
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Input|Playing")
+	UInputAction* EscAction;			// ESC按钮事件
+
 	// 用来通知客户端进行倒计时更新的委托
 	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="UI")
 	FOnRoundCountDownChanged OnRoundCountDownChanged;
@@ -65,6 +73,15 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="UI")
 	FOnRoundEnd OnRoundEnd;
+
+	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="UI")
+	FOnEscPressed OnEscPressed;
+
+	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="UI")
+	FOnEventCountDownChanged OnEventCountDownChanged;
+
+	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="UI")
+	FOnEventTitleChanged OnEventTitleChanged;
 	
 public:
 	void DragItemPressed();
@@ -78,6 +95,8 @@ public:
 	void StopJump();
 	void Attack();
 
+	void OpenEscMenu();
+
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 
@@ -90,6 +109,23 @@ public:
 	UFUNCTION(Client, Reliable)
 	void EndRound(bool bIsHumanWin);			// 回合结束
 
+	UFUNCTION(BlueprintCallable, Client, Reliable)
+	void PlaySoundOnClient(USoundBase* SoundBase);
+
+	UFUNCTION(BlueprintCallable, NetMulticast, Reliable)
+	void PlaySoundAtLocationOnAllClient(USoundBase* SoundBase, FVector Location, FRotator Rotation);
+
+	UFUNCTION(Client, Reliable)
+	void BackToMainMenuLevel();
+
+	// 事件倒计时
+	UFUNCTION(Client, Reliable)
+	void UpdateEventCountDown(int32 CurrentStartWaitTimeLeft);
+
+	// 事件标题更新
+	UFUNCTION(Client, Reliable)
+	void UpdateEventCountDownTitle(const FString& String, int32 StageTime);
+	
 private:
 	void BindInputContext() const;
 

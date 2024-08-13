@@ -113,6 +113,7 @@ void UInventoryComponent::UseInHandItem() {
 	if(Tools.UsageCount == Tools.MaxUsageCount) {
 		// 销毁这个Tool
 		Tools = EmptyItem;
+		OnSkillDestroy.Broadcast();
 		OnSelectedToolChanged.Broadcast(Tools);
 		OnInventoryChanged.Broadcast(Tools, Props);
 	}

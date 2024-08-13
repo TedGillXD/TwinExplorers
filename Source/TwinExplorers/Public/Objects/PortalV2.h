@@ -76,6 +76,7 @@ protected:
 	bool bIsInit;
 
 	bool bIsEnabled;		// 目前是否开启更新
+	FVector2D LastViewportSize;
 
 public:
 	APortalV2();
@@ -115,13 +116,14 @@ private:
 	// 传送相关
 	TArray<AActor*> BoxOverlappingActors;
 	FVector GetUpdatedVelocity(const FVector& OriginalVelocity);
+	FVector CalculateTargetAxes(FVector X) const;
 
 	UFUNCTION(Server, Reliable)
 	void MarkTeleportingOnServer();
 	void MarkTeleporting();
 
 	// Portal优化相关
-	EOptimizedLevel GetOptimizationLevel() const;
+	EOptimizedLevel GetOptimizationLevel(const FTransform& CameraTransform, const FVector& CameraForward, int CameraFOV) const;
 	void EnableSceneCapture();
 	void DisableSceneCapture();
 	void SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel);

@@ -47,7 +47,7 @@ AMainCharacterBase::AMainCharacterBase()
 
 	InHandItemActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("InHandItemActor"));
 	InHandItemActor->SetIsReplicated(true);
-	InHandItemActor->SetupAttachment(FirstPersonCamera);
+	InHandItemActor->SetupAttachment(GetMesh(), FName("hand"));
 
 	IceGenerationComponent = CreateDefaultSubobject<UIceGenerationComponent>(TEXT("IceGenerationComp"));
 	IceGenerationComponent->SetIsReplicated(true);
@@ -60,6 +60,7 @@ AMainCharacterBase::AMainCharacterBase()
 	
     // 绑定更换手中道具的函数
     InventoryComponent->OnSelectedToolChanged.AddDynamic(this, &AMainCharacterBase::InHandItemChanged);
+	InventoryComponent->OnSkillDestroy.AddDynamic(this, &AMainCharacterBase::DeactivateSkill);
 }
 
 // Called when the game starts or when spawned
@@ -155,6 +156,13 @@ void AMainCharacterBase::UseSkillReleased() {
 	
 }
 
+void AMainCharacterBase::DeactivateSkill() {
+	ASkill* Skill = Cast<ASkill>(InHandItemActor->GetChildActor());
+	if(Skill) {
+		Skill->DeactivateSkill(this);
+	}
+}
+
 void AMainCharacterBase::AttackOnServer_Implementation() {
 	if(CharacterTeam == ECharacterTeam::Human) { return; }		// 人不会攻击
 	if(bIsAttacking) { return; }
@@ -198,9 +206,19 @@ void AMainCharacterBase::AttackDetection() {
 				OtherCharacter->GetInfect();		// 处理感染
 			}
 		}
-		
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow, "Notified");
 	}
+}
+
+void AMainCharacterBase::SetCharacterVisibilityMulticast_Implementation(bool NewVisibility) {
+	GetCapsuleComponent()->SetVisibility(NewVisibility, true);
+}
+
+void AMainCharacterBase::SetCharacterVisibility_Implementation(bool NewVisibility) {
+	SetCharacterVisibilityMulticast(NewVisibility);
+}
+
+void AMainCharacterBase::GetHit_Implementation() {
+	GetCapsuleComponent()->SetSimulatePhysics(true);
 }
 
 void AMainCharacterBase::MulticastPlayAttackMontage_Implementation() {
@@ -208,6 +226,10 @@ void AMainCharacterBase::MulticastPlayAttackMontage_Implementation() {
 	if(AttackMontage) {
 		PlayAnimMontage(AttackMontage, AttackPlayRate);
 	}
+}
+
+void AMainCharacterBase::RecoverFromHit_Implementation() {
+	GetCapsuleComponent()->SetSimulatePhysics(false);
 }
 
 void AMainCharacterBase::OnRep_CameraPitch() const {

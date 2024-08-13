@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "SwingHammer.generated.h"
 
+class UBoxComponent;
 class UPhysicsConstraintComponent;
 
 UCLASS()
@@ -22,6 +23,12 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
 	UPhysicsConstraintComponent* PhysicsConstraint;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Components")
+	UBoxComponent* LeftBox;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	UBoxComponent* RightBox;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Hammer Settings")
 	float SwingSpeed; // 摆动的速度
@@ -40,4 +47,6 @@ private:
 
 	void ToggleSwingDirection();
 
+	UFUNCTION()
+	void Hit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 };

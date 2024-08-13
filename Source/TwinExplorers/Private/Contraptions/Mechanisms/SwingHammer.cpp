@@ -3,7 +3,11 @@
 
 #include "Contraptions/Mechanisms/SwingHammer.h"
 
+#include "Characters/MainCharacterBase.h"
+#include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
+#include "GameFramework/Character.h"
 
 // Sets default values
 ASwingHammer::ASwingHammer()
@@ -20,6 +24,11 @@ ASwingHammer::ASwingHammer()
 	HammerMesh->SetupAttachment(Root);
 	HammerMesh->SetSimulatePhysics(true);
 	HammerMesh->SetCollisionProfileName(TEXT("PhysicsActor"));
+
+	LeftBox = CreateDefaultSubobject<UBoxComponent>(TEXT("LeftBox"));
+	LeftBox->SetupAttachment(HammerMesh);
+	RightBox = CreateDefaultSubobject<UBoxComponent>(TEXT("RightBox"));
+	RightBox->SetupAttachment(HammerMesh);
 
 	// 初始化物理约束组件
 	PhysicsConstraint = CreateDefaultSubobject<UPhysicsConstraintComponent>(TEXT("PhysicsConstraint"));
@@ -40,12 +49,26 @@ ASwingHammer::ASwingHammer()
 	bMovingToEnd = true;
 }
 
+void ASwingHammer::Hit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+	
+	if (HasAuthority() && OtherActor && OtherActor->IsA<AMainCharacterBase>()) {
+		AMainCharacterBase* Character = Cast<AMainCharacterBase>(OtherActor);
+		Character->GetHit();
+
+		FTimerHandle TimerHandle_Recovery;
+		GetWorldTimerManager().SetTimer(TimerHandle_Recovery, FTimerDelegate::CreateLambda([Character]() -> void {
+			Character->RecoverFromHit();
+		}), 1.f, false);
+	}
+}
+
 // Called when the game starts or when spawned
 void ASwingHammer::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// 把客户端的模拟物理关掉方式jittery
+	// 把客户端的模拟物理关掉防止jittery
 	if(!HasAuthority()) {
 		HammerMesh->SetSimulatePhysics(false);
 	}
@@ -53,6 +76,8 @@ void ASwingHammer::BeginPlay()
 	// 初始方向
 	if(HasAuthority()) {
 		ToggleSwingDirection();
+		LeftBox->OnComponentBeginOverlap.AddDynamic(this, &ASwingHammer::Hit);
+		RightBox->OnComponentBeginOverlap.AddDynamic(this, &ASwingHammer::Hit);
 	}
 
 }

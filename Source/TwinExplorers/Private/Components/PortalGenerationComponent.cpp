@@ -31,8 +31,8 @@ void UPortalGenerationComponent::BeginPlay()
 	}
 }
 
-void UPortalGenerationComponent::ShootPortal1() {
-	if (!bIsInitialized) { return; }
+bool UPortalGenerationComponent::ShootPortal1() {
+	if (!bIsInitialized) { return false; }
 
 	FVector Start = Owner->GetCameraComponent()->GetComponentLocation();
 	FVector End = Start + Owner->GetCameraComponent()->GetForwardVector() * DetectionDistance;
@@ -44,17 +44,20 @@ void UPortalGenerationComponent::ShootPortal1() {
 		FRotator NewRotation = UKismetMathLibrary::MakeRotFromX(HitResult.ImpactNormal);
 
 		if (!CheckRoom(HitResult, NewLocation, NewRotation) || !CheckOverlap(NewLocation, NewRotation)) {
-			return;
+			return false;
 		}
 
 		if(bCanGeneratePortal1) {
 			SpawnPortal1AtLocationAndRotation(NewLocation, NewRotation);
+			return true;
 		}
 	}
+
+	return false;
 }
 
-void UPortalGenerationComponent::ShootPortal2() {
-	if (!bIsInitialized) { return; }
+bool UPortalGenerationComponent::ShootPortal2() {
+	if (!bIsInitialized) { return false; }
 
 	FVector Start = Owner->GetCameraComponent()->GetComponentLocation();
 	FVector End = Start + Owner->GetCameraComponent()->GetForwardVector() * DetectionDistance;
@@ -66,13 +69,16 @@ void UPortalGenerationComponent::ShootPortal2() {
 		FRotator NewRotation = UKismetMathLibrary::MakeRotFromX(HitResult.ImpactNormal);
 
 		if (!CheckRoom(HitResult, NewLocation, NewRotation) || !CheckOverlap(NewLocation, NewRotation)) {
-			return;
+			return false;
 		}
 
 		if (bCanGeneratePortal2) {
 			SpawnPortal2AtLocationAndRotation(NewLocation, NewRotation);
+			return true;
 		}
 	}
+
+	return false;
 }
 
 void UPortalGenerationComponent::ResetOnServer_Implementation() {
@@ -80,6 +86,14 @@ void UPortalGenerationComponent::ResetOnServer_Implementation() {
 	bCanGeneratePortal2 = true;
 	PortalRef1 = nullptr;
 	PortalRef2 = nullptr;
+}
+
+bool UPortalGenerationComponent::IsPortal1Exist() const {
+	return PortalRef1 != nullptr;
+}
+
+bool UPortalGenerationComponent::IsPortal2Exist() const {
+	return PortalRef2 != nullptr;
 }
 
 void UPortalGenerationComponent::Reset() {
@@ -187,6 +201,8 @@ void UPortalGenerationComponent::SpawnPortal1AtLocationAndRotation_Implementatio
 
 	bCanGeneratePortal1 = false;
 	bIsGeneratingPortal1 = false;
+
+	if(PortalRef1 && PortalRef2) { APortalV2::Relink(PortalRef1, PortalRef2); }
 }
 
 void UPortalGenerationComponent::SpawnPortal2AtLocationAndRotation_Implementation(const FVector& NewLocation, const FRotator& NewRotation) {
@@ -204,6 +220,8 @@ void UPortalGenerationComponent::SpawnPortal2AtLocationAndRotation_Implementatio
 
 	bCanGeneratePortal2 = false;
 	bIsGeneratingPortal2 = false;
+
+	if(PortalRef1 && PortalRef2) { APortalV2::Relink(PortalRef1, PortalRef2); }
 }
 
 void UPortalGenerationComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

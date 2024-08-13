@@ -34,14 +34,27 @@ protected:
 	FItem ItemData;
 
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="ItemActorBase Props")
+	float RotationSpeed;
+
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="ItemActorBase Props")
+	float FloatSpeed;
+
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="ItemActorBase Props")
 	UMaterialInterface* FocusedMaterial;
 
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="ItemActorBase Props")
 	UMaterialInterface* UnfocusedMaterial;
 
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="ItemActorBase Props")
+	USoundBase* PickupSound;		// 拾取的声音
+
+	float RunningTime;
+
 public:
 	UFUNCTION()
 	void PickupItem(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	virtual void Tick(float DeltaSeconds) override;
 	
 	virtual bool CanInteract_Implementation(const FItem& InHandItem) override;
 	virtual void Interact_Implementation(APawn* FromPawn, const FItem& InHandItem) override;

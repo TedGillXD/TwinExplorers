@@ -22,6 +22,9 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="JumpPad")
 	float JumpForce;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="JumpPad")
+	USoundBase* JumpSound;		// 触发蹦床的时候发出的声音
 	
 public:	
 	// Sets default values for this actor's properties

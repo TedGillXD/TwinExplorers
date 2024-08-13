@@ -122,6 +122,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void UseSkillReleased();
 
+	UFUNCTION()
+	void DeactivateSkill();
+
 	UFUNCTION(Server, Reliable)
 	void AttackOnServer();
 	void Attack();
@@ -132,6 +135,18 @@ public:
 	// 在服务器中用来通知其他所有的客户端中对应的角色播放攻击动画
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayAttackMontage();
+
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void SetCharacterVisibility(bool NewVisibility);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void SetCharacterVisibilityMulticast(bool NewVisibility);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void GetHit();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void RecoverFromHit();
 
 protected:
 	UFUNCTION()
@@ -157,4 +172,5 @@ protected:
 	
 	UFUNCTION(Client, Reliable)
 	void SetControlRotationOnClient(const FVector& TargetLocation, const FRotator& TargetRotation);
+	
 };

@@ -7,9 +7,11 @@
 #include "EnhancedInputSubsystems.h"
 #include "CommonInputSubsystem.h"
 #include "InputActionValue.h"
+#include "AssetTypeActions/AssetDefinition_SoundBase.h"
 #include "Characters/MainCharacterBase.h"
 #include "Components/InteractComponent.h"
 #include "GameFramework/Character.h"
+#include "Kismet/GameplayStatics.h"
 
 
 void ATEPlayerController::DragItemPressed() {
@@ -92,6 +94,10 @@ void ATEPlayerController::Attack() {
 	}
 }
 
+void ATEPlayerController::OpenEscMenu() {
+	OnEscPressed.Broadcast();
+}
+
 void ATEPlayerController::BeginPlay() {
 	Super::BeginPlay();
 
@@ -116,6 +122,9 @@ void ATEPlayerController::SetupInputComponent() {
 
 		// 攻击
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ATEPlayerController::Attack);
+
+		// 打开菜单
+		EnhancedInputComponent->BindAction(EscAction, ETriggerEvent::Triggered, this, &ATEPlayerController::OpenEscMenu);
 	}
 }
 
@@ -130,6 +139,26 @@ void ATEPlayerController::UpdateCountDownTitle_Implementation(const FString& Str
 void ATEPlayerController::EndRound_Implementation(bool bIsHumanWin) {
 	OnRoundEnd.Broadcast(bIsHumanWin);
 	DisableInput(this);
+}
+
+void ATEPlayerController::PlaySoundOnClient_Implementation(USoundBase* SoundBase) {
+	UGameplayStatics::PlaySound2D(GetWorld(), SoundBase);
+}
+
+void ATEPlayerController::PlaySoundAtLocationOnAllClient_Implementation(USoundBase* SoundBase, FVector Location, FRotator Rotation) {
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), SoundBase, Location, Rotation);
+}
+
+void ATEPlayerController::BackToMainMenuLevel_Implementation() {
+	UGameplayStatics::OpenLevel(this, FName("Level_StartupMenu"));
+}
+
+void ATEPlayerController::UpdateEventCountDown_Implementation(int32 CurrentStartWaitTimeLeft) {
+	OnEventCountDownChanged.Broadcast(CurrentStartWaitTimeLeft);
+}
+
+void ATEPlayerController::UpdateEventCountDownTitle_Implementation(const FString& String, int32 StageTime) {
+	OnEventTitleChanged.Broadcast(String, StageTime);
 }
 
 void ATEPlayerController::BindInputContext() const {

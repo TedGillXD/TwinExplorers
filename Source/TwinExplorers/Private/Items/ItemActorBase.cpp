@@ -6,6 +6,7 @@
 #include "Characters/MainCharacterBase.h"
 #include "Components/InventoryComponent.h"
 #include "Components/SphereComponent.h"
+#include "Controllers/TEPlayerController.h"
 
 AItemActorBase::AItemActorBase() {
 	AsRoot = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
@@ -15,7 +16,7 @@ AItemActorBase::AItemActorBase() {
 	ItemMesh->SetupAttachment(AsRoot);
 
 	PickupSphere = CreateDefaultSubobject<USphereComponent>(TEXT("PickupSphere"));
-	PickupSphere->SetupAttachment(ItemMesh);
+	PickupSphere->SetupAttachment(AsRoot);
 	PickupSphere->OnComponentBeginOverlap.AddDynamic(this, &AItemActorBase::PickupItem);
 
 	// 开启网络同步
@@ -24,6 +25,7 @@ AItemActorBase::AItemActorBase() {
 
 	NetUpdateFrequency = 10.f;
 	MinNetUpdateFrequency = 2.f;
+	RunningTime = 0.f;
 }
 
 void AItemActorBase::PickupItem(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
@@ -33,6 +35,25 @@ void AItemActorBase::PickupItem(UPrimitiveComponent* OverlappedComponent, AActor
 
 	// 拾起道具
 	Execute_Interact(this, Cast<ACharacter>(OtherActor), EmptyItem);
+}
+
+void AItemActorBase::Tick(float DeltaSeconds) {
+	Super::Tick(DeltaSeconds);
+
+	if(!HasAuthority()) {
+		// 让物体旋转
+		FRotator NewRotation = FRotator(0, RotationSpeed * DeltaSeconds, 0);
+		ItemMesh->AddWorldRotation(NewRotation);
+
+		// 让物体上下浮动
+		FVector NewLocation = ItemMesh->GetRelativeLocation();
+		float DeltaHeight = FMath::Sin(RunningTime + DeltaSeconds) - FMath::Sin(RunningTime);
+		NewLocation.Z += DeltaHeight * FloatSpeed;  // 控制浮动速度
+		ItemMesh->SetRelativeLocation(NewLocation);
+
+		// 更新运行时间
+		RunningTime += DeltaSeconds;
+	}
 }
 
 bool AItemActorBase::CanInteract_Implementation(const FItem& InHandItem) {
@@ -54,6 +75,12 @@ void AItemActorBase::Interact_Implementation(APawn* FromPawn, const FItem& InHan
 			return;
 		}
 		InventoryComp->AddItem(ItemData);
+
+		// 使用PC来放声音
+		ATEPlayerController* Controller = Cast<ATEPlayerController>(FromPawn->GetController());
+		if(Controller) {		// 进来的一定是玩家，AI拾取就不会发声了
+			Controller->PlaySoundOnClient(PickupSound);
+		}
 	
 		this->Destroy();
 	}

@@ -10,6 +10,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnInventoryChanged, const FItem&, Tool, const TArray<FItem>&, Props);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSelectedToolChanged, const FItem&, Item);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSkillDestroy);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class TWINEXPLORERS_API UInventoryComponent : public UActorComponent
@@ -33,6 +34,9 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="Inventory Props")
 	FOnSelectedToolChanged OnSelectedToolChanged;
+
+	UPROPERTY(BlueprintReadOnly, BlueprintAssignable, Category="Inventory Props")
+	FOnSkillDestroy OnSkillDestroy;		// 技能已经用完了，通知角色调用Deactivate
 	
 	UFUNCTION(Server, Reliable)
 	void ServerAddItem(const FItem& Item);

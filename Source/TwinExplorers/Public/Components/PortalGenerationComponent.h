@@ -56,10 +56,10 @@ protected:
 
 public:
     UFUNCTION(BlueprintCallable)
-    void ShootPortal1();
+    bool ShootPortal1();
 
     UFUNCTION(BlueprintCallable)
-    void ShootPortal2();
+    bool ShootPortal2();
 
 private:
     UFUNCTION(Server, Reliable)
@@ -67,6 +67,12 @@ private:
 
     UFUNCTION(Server, Reliable)
     void SpawnPortal2AtLocationAndRotation(const FVector& NewLocation, const FRotator& NewRotation);
+
+    UFUNCTION(BlueprintPure)
+    bool IsPortal1Exist() const;
+
+    UFUNCTION(BlueprintPure)
+    bool IsPortal2Exist() const;
 
     UFUNCTION(Server, Reliable)
     void ResetOnServer();
