@@ -4,6 +4,7 @@
 #include "Items/ItemActorBase.h"
 
 #include "Characters/MainCharacterBase.h"
+#include "Components/DecalComponent.h"
 #include "Components/InventoryComponent.h"
 #include "Components/SphereComponent.h"
 #include "Controllers/TEPlayerController.h"
@@ -18,6 +19,11 @@ AItemActorBase::AItemActorBase() {
 	PickupSphere = CreateDefaultSubobject<USphereComponent>(TEXT("PickupSphere"));
 	PickupSphere->SetupAttachment(AsRoot);
 	PickupSphere->OnComponentBeginOverlap.AddDynamic(this, &AItemActorBase::PickupItem);
+
+	IndicatorDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("IndicatorDecal"));
+	IndicatorDecal->SetupAttachment(AsRoot);
+	IndicatorDecal->SetRelativeLocation(FVector{ 0.0, 0.0, -100.0 });
+	IndicatorDecal->SetRelativeRotation(FRotator{ 180.0, 90.0, 180.0 });
 
 	// 开启网络同步
 	this->bReplicates = true;
@@ -81,7 +87,8 @@ void AItemActorBase::Interact_Implementation(APawn* FromPawn, const FItem& InHan
 		if(Controller) {		// 进来的一定是玩家，AI拾取就不会发声了
 			Controller->PlaySoundOnClient(PickupSound);
 		}
-	
+
+		OnItemBeingPicked.Broadcast(SpawnLocationActorRef);
 		this->Destroy();
 	}
 }

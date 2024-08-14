@@ -7,6 +7,7 @@
 #include "Characters/MainCharacterBase.h"
 #include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
+#include "Components/CustomRateCaptureComponent2D.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMaterialLibrary.h"
@@ -26,7 +27,7 @@ APortalV2::APortalV2()
 	PortalPlane = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PortalPlane"));
 	PortalPlane->SetupAttachment(GetRootComponent());
 
-	PortalCamera = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("PortalCamera"));
+	PortalCamera = CreateDefaultSubobject<UCustomRateCaptureComponent2D>(TEXT("PortalCamera"));
 	PortalCamera->SetupAttachment(GetRootComponent());
 
 	ForwardDirection = CreateDefaultSubobject<UArrowComponent>(TEXT("ForwardDirection"));
@@ -42,6 +43,7 @@ APortalV2::APortalV2()
 	
 	bIsInit = false;
 	bIsEnabled = true;
+	bCanBeOptimized = false;
 }
 
 // Called when the game starts or when spawned
@@ -74,32 +76,18 @@ void APortalV2::BeginPlay() {
 void APortalV2::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
 
-	// // 在这里检测是否存在另外一个Portal，如果存在则绑定
-	// // 为什么不在BeginPlay执行呢？因为根据RPC规则，如果是通过通知的方式需要在Client1发送链接到服务器然后再从服务器复制到Client2，然后Client2得到通知再发送链接请求到服务器到Client1，总共需要Server <-> Client进行4次通信
-	// // 而改成在Tick中，就能减少为两次
-	// if(HasAuthority()) {
-	// 	if(!LinkedPortal) {
-	// 		// 尝试获取另外一个Portal
-	// 		TArray<AActor*> FoundActors;
-	// 		UGameplayStatics::GetAllActorsOfClass(GetWorld(), StaticClass(), FoundActors);
-	// 		for(AActor* Actor : FoundActors) {
-	// 			if(Actor != this) {
-	// 				APortalV2* OtherPortal = Cast<APortalV2>(Actor);
-	// 				LinkPortal(OtherPortal);       // 绑定传送门
-	// 			}
-	// 		}
-	// 	}
-	// }
-
 	if(!HasAuthority()) {
-		if(LocalCharacter && LinkedPortal && bIsInit) {
+		if(LocalCharacter && LinkedPortal && bIsInit && LinkedPortal->bIsInit) {
 			// 获取当前优化级别
 			EOptimizedLevel CurrentLevel = GetOptimizationLevel(LocalCharacter->GetCameraComponent()->GetComponentTransform(), LocalCharacter->GetCameraComponent()->GetForwardVector(), LocalCharacter->GetCameraComponent()->FieldOfView);
-			// GEngine->AddOnScreenDebugMessage(-1, 0.0, FColor::Blue, GetName() + (bIsEnabled ? " : True" : " : False") + "  " + FString::FromInt(CurrentLevel));
+			GEngine->AddOnScreenDebugMessage(-1, 0.0, FColor::Blue, GetName() + (bIsEnabled ? " : True" : " : False") + "  " + FString::FromInt(CurrentLevel));
 			// 仅在优化级别变化时更新状态
-			if (CurrentLevel != LastLevel) {
+			if (CurrentLevel != LastLevel && bCanBeOptimized) {
 				SetCurrentOptimizationLevel(CurrentLevel);
 			}
+			GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([this]() -> void {
+				this->bCanBeOptimized = true;
+			}));
 			
 			if(bIsEnabled) {
 				UpdateSceneCapture(LocalCharacter->GetCameraComponent()->GetComponentTransform());
@@ -128,12 +116,15 @@ void APortalV2::TriggerTeleport(UPrimitiveComponent* OverlappedComponent, AActor
 	if(HasAuthority() && LinkedPortal && !bIsTeleporting) {
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, "Teleport!");
 		if(!OtherActor->Implements<UTransportableInterface>()) { return; }
+		if(!OtherActor->IsA<AMainCharacterBase>()) { return; }			// 现在只有角色能传送了
+		AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(OtherActor);
+		if(CharacterBase->bIsTeleporting) { return; }
 		LinkedPortal->MarkTeleporting();
 
 		FVector TargetLocation = LinkedPortal->PlayerDetection->GetComponentLocation();
 		FVector TargetVelocity = GetUpdatedVelocity(ITransportableInterface::Execute_GetOriginalVelocity(OtherActor));
 		
-		FRotator OriginalRotation = OtherActor->GetActorRotation();
+		FRotator OriginalRotation = CharacterBase->GetActorRotation();
 		FRotator InverseRotation =	OriginalRotation.Vector().MirrorByVector(GetActorForwardVector()).MirrorByVector(GetActorRightVector()).Rotation();
 		FRotator PortalRotationDelta = LinkedPortal->GetActorRotation() - GetActorRotation();
 		FRotator TargetRotation = UKismetMathLibrary::ComposeRotators(PortalRotationDelta, InverseRotation);
@@ -153,7 +144,6 @@ void APortalV2::Relink(APortalV2* Portal1, APortalV2* Portal2) {
 
 	if(Portal1->HasAuthority() && Portal2->HasAuthority()) {
 		Portal1->LinkPortal(Portal2);
-		Portal2->LinkPortal(Portal1);
 	}
 }
 
@@ -315,22 +305,19 @@ EOptimizedLevel APortalV2::GetOptimizationLevel(const FTransform& CameraTransfor
 
 void APortalV2::EnableSceneCapture() {
 	if(bIsEnabled) { return; }
-	// PortalCamera->SetComponentTickEnabled(true);
-	// PortalCamera->SetVisibility(true);
-	// PortalCamera->bCaptureEveryFrame = true;
-	// PortalCamera->bCaptureOnMovement = true;
-	// PortalCamera->bAlwaysPersistRenderingState = true;
-	// PortalCamera->CaptureScene(); // 手动捕捉一次
+	PortalCamera->Enable();
 	bIsEnabled = true;
 }
 
 void APortalV2::DisableSceneCapture() {
-	if(LinkedPortal) {
-		LinkedPortal->PortalRT->ResizeTarget(1.f, 1.f);  // 设置为1.f
-	}
+	if(!bIsEnabled) { return; }
+	PortalCamera->Disable();
+	bIsEnabled = false;
 }
 
 void APortalV2::SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel) {
+	if(!LinkedPortal) { return; }
+	
 	switch (OptimizedLevel) {
 	case Level0:
 		LinkedPortal->EnableSceneCapture();
@@ -353,34 +340,43 @@ void APortalV2::SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel) {
 	LastLevel = OptimizedLevel;
 }
 
-void APortalV2::SetToLevel0Resolution() {
+void APortalV2::SetToLevel0Resolution() const {
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
-	if(LinkedPortal) {
-		LinkedPortal->PortalRT->ResizeTarget(Size.X, Size.Y);  // 使用原始分辨率
-	}
+	LinkedPortal->PortalRT->ResizeTarget(Size.X, Size.Y);
+	LinkedPortal->PortalCamera->ChangeFramePerSec(60);
 }
 
-void APortalV2::SetToLevel1Resolution() {
+void APortalV2::SetToLevel1Resolution() const {
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
-	if(LinkedPortal) {
-		LinkedPortal->PortalRT->ResizeTarget(Size.X * 0.5f, Size.Y * 0.5f);  // 原始分辨率的0.5
-	}
+	LinkedPortal->PortalRT->ResizeTarget(Size.X / 2, Size.Y / 2);
+	LinkedPortal->PortalCamera->ChangeFramePerSec(40);
 }
 
-void APortalV2::SetToLevel2Resolution() {
+void APortalV2::SetToLevel2Resolution() const {
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
-	if(LinkedPortal) {
-		LinkedPortal->PortalRT->ResizeTarget(Size.X * 0.5f, Size.Y * 0.5f);  // 分辨率调整为原始的0.5，并降低采样帧率
+	LinkedPortal->PortalRT->ResizeTarget(Size.X / 2, Size.Y / 2);
+	LinkedPortal->PortalCamera->ChangeFramePerSec(30);
+}
+
+void APortalV2::ResizeTextureToMatchViewport(const FVector2D& DesiredSize) const {
+	if (!LinkedPortal || !LinkedPortal->PortalRT) return;
+
+	int32 CurrentWidth = LinkedPortal->PortalRT->SizeX;
+	int32 CurrentHeight = LinkedPortal->PortalRT->SizeY;
+	
+	if (DesiredSize.X != CurrentWidth || DesiredSize.Y != CurrentHeight) {
+		LinkedPortal->PortalRT->ResizeTarget(DesiredSize.X, DesiredSize.Y);
+		LinkedPortal->PortalCamera->CaptureSceneDeferred();
 	}
 }
 
 float APortalV2::GetScale() const {
 	if(LastLevel == Level0) { return 1; }
 	if(LastLevel == Level1) { return 0.5; }
-	if(LastLevel == Level2) { return 0.25; }
+	if(LastLevel == Level2) { return 0.5; }
 	return 0.f;
 }
 

@@ -24,6 +24,11 @@ void ATEGameModeBase::BeginPlay() {
 
 	// 获取所有的能生成道具的位置
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), SpawnItemClass, SpawnItemLocations);
+
+	// 初始化 SpawnLocationStatusMap
+	for (AActor* SpawnLocation : SpawnItemLocations) {
+		SpawnLocationStatusMap.Add(SpawnLocation, false);
+	}
 }
 
 void ATEGameModeBase::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) {
@@ -85,22 +90,47 @@ void ATEGameModeBase::SpawnItem() {
 	// 如果没有指定生成的道具并且场景中没有标记位置，直接返回
 	if (SpawnItemLocations.Num() == 0 || ItemClasses.Num() == 0) { return; }
 
-	// 选择一个随机的位置
-	int32 RandomLocationIndex = FMath::RandRange(0, SpawnItemLocations.Num() - 1);
-	AActor* SpawnLocationActor = SpawnItemLocations[RandomLocationIndex];
-	if (!SpawnLocationActor) { return; }
+	// 获取所有未生成道具的SpawnLocation
+	TArray<AActor*> AvailableLocations;
+	for (AActor* Location : SpawnItemLocations) {
+		if (!SpawnLocationStatusMap[Location]) {
+			AvailableLocations.Add(Location);
+		}
+	}
 
-	FVector SpawnLocation = SpawnLocationActor->GetActorLocation();
-	FRotator SpawnRotation = FRotator::ZeroRotator;
+	if (AvailableLocations.Num() == 0) {
+		// 如果没有可用的SpawnLocation，直接返回
+		return;
+	}
+	
+	// 随机选择一个数量n，n的范围为1到3的数量
+	int32 NumToSpawn = FMath::RandRange(1, FMath::Min(3, AvailableLocations.Num()));
 
-	// 选择一个随机的道具类
-	int32 RandomItemIndex = FMath::RandRange(0, ItemClasses.Num() - 1);
-	TSubclassOf<AItemActorBase> SelectedItemClass = ItemClasses[RandomItemIndex];
-	if (!SelectedItemClass) { return; }
+	// 从AvailableLocations中随机选择n个位置
+	TArray<AActor*> SelectedLocations;
+	for (int32 i = 0; i < NumToSpawn; i++) {
+		int32 RandomIndex = FMath::RandRange(0, AvailableLocations.Num() - 1);
+		SelectedLocations.Add(AvailableLocations[RandomIndex]);
+		AvailableLocations.RemoveAt(RandomIndex); // 确保每个位置只能选择一次
+	}
 
-	// 在选择的位置生成道具实例
-	GetWorld()->SpawnActor<AItemActorBase>(SelectedItemClass, SpawnLocation, SpawnRotation);
+	// 对每个选择的位置生成道具
+	for (AActor* SpawnLocationActor : SelectedLocations) {
+		FVector SpawnLocation = SpawnLocationActor->GetActorLocation();
+		FRotator SpawnRotation = FRotator::ZeroRotator;
 
+		int32 RandomItemIndex = FMath::RandRange(0, ItemClasses.Num() - 1);
+		TSubclassOf<AItemActorBase> SelectedItemClass = ItemClasses[RandomItemIndex];
+		if (!SelectedItemClass) { continue; }
+
+		AItemActorBase* ItemActor = GetWorld()->SpawnActor<AItemActorBase>(SelectedItemClass, SpawnLocation, SpawnRotation);
+		ItemActor->SpawnLocationActorRef = SpawnLocationActor;
+		ItemActor->OnItemBeingPicked.AddDynamic(this, &ATEGameModeBase::PickedItem);
+
+		// 更新SpawnLocation的状态为true，表示已生成物品
+		SpawnLocationStatusMap[SpawnLocationActor] = true;
+	}
+	
 	EventTimeLeft = ItemSpawnInterval;		// 重置倒计时
 }
 
@@ -249,6 +279,11 @@ bool ATEGameModeBase::AreAllPlayersInfected() const {
 		}
 	}
 	return true; // 所有玩家均已被感染
+}
+
+void ATEGameModeBase::PickedItem(AActor* SpawnLocationRef) {
+	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow, SpawnLocationRef->GetName() + " Reset!");
+	SpawnLocationStatusMap[SpawnLocationRef] = false;
 }
 
 void ATEGameModeBase::CheckGameOver() {

@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "PortalV2.generated.h"
 
+class UCustomRateCaptureComponent2D;
 class UBoxComponent;
 class AMainCharacterBase;
 class UArrowComponent;
@@ -31,7 +32,7 @@ protected:
 	UStaticMeshComponent* PortalPlane;
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
-	USceneCaptureComponent2D* PortalCamera;
+	UCustomRateCaptureComponent2D* PortalCamera;
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	UArrowComponent* ForwardDirection;
@@ -77,6 +78,7 @@ protected:
 
 	bool bIsEnabled;		// 目前是否开启更新
 	FVector2D LastViewportSize;
+	bool bCanBeOptimized;		// 能否开始进行优化
 
 public:
 	APortalV2();
@@ -127,8 +129,9 @@ private:
 	void EnableSceneCapture();
 	void DisableSceneCapture();
 	void SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel);
-	void SetToLevel0Resolution();
-	void SetToLevel1Resolution();
-	void SetToLevel2Resolution();
+	void SetToLevel0Resolution() const;
+	void SetToLevel1Resolution() const;
+	void SetToLevel2Resolution() const;
+	void ResizeTextureToMatchViewport(const FVector2D& DesiredSize) const;
 	float GetScale() const;
 };

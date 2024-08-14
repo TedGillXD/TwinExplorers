@@ -33,7 +33,7 @@ void UInventoryComponent::BeginPlay()
 }
 
 bool UInventoryComponent::IsContain(const FName ItemName) {
-	if(Tools.ItemName.IsEqual(ItemName, ENameCase::CaseSensitive)) {
+	if(Skill.ItemName.IsEqual(ItemName, ENameCase::CaseSensitive)) {
 		return true;
 	}
 
@@ -47,8 +47,8 @@ bool UInventoryComponent::IsContain(const FName ItemName) {
 }
 
 FItem UInventoryComponent::GetItemByName(const FName ItemName) {
-	if(Tools.ItemName.IsEqual(ItemName, ENameCase::CaseSensitive)) {
-		return Tools;
+	if(Skill.ItemName.IsEqual(ItemName, ENameCase::CaseSensitive)) {
+		return Skill;
 	}
 
 	for(int32 Index = 0; Index < Props.Num(); Index++) {
@@ -64,12 +64,12 @@ void UInventoryComponent::AddItem(const FItem& Item) {
 	if(GetOwnerRole() == ROLE_Authority) {		// 服务器端中直接进行加入
 		if(Item.bIsTool) {
 			// TODO: 将背包中的道具Drop出来
-			Tools = Item;		// 直接替换Tool
-			OnSelectedToolChanged.Broadcast(Tools); 	// 手中的技能发生变化，更新
+			Skill = Item;		// 直接替换Tool
+			OnSelectedToolChanged.Broadcast(Skill); 	// 手中的技能发生变化，更新
 		} else {
 			Props.Add(Item);
 		}
-		OnInventoryChanged.Broadcast(Tools, Props);
+		OnInventoryChanged.Broadcast(Skill, Props);
 	} else {	// 对于客户端来说，这个拾取物品需要发送到服务器中进行存入
 		ServerAddItem(Item);
 	}
@@ -77,11 +77,11 @@ void UInventoryComponent::AddItem(const FItem& Item) {
 
 FItem UInventoryComponent::RemoveItemByName(FName ItemName) {
 	if(GetOwnerRole() == ROLE_Authority) {
-		if(Tools.ItemName.IsEqual(ItemName, ENameCase::CaseSensitive)) {
-			FItem Ret = Tools;
-			Tools = {};
-			OnInventoryChanged.Broadcast(Tools, Props);
-			OnSelectedToolChanged.Broadcast(Tools);
+		if(Skill.ItemName.IsEqual(ItemName, ENameCase::CaseSensitive)) {
+			FItem Ret = Skill;
+			Skill = {};
+			OnInventoryChanged.Broadcast(Skill, Props);
+			OnSelectedToolChanged.Broadcast(Skill);
 			return Ret;
 		}
 
@@ -89,7 +89,7 @@ FItem UInventoryComponent::RemoveItemByName(FName ItemName) {
 			if(Props[Index].ItemName.IsEqual(ItemName, ENameCase::CaseSensitive)) {
 				const FItem Item = Props[Index];
 				Props.RemoveAt(Index);
-				OnInventoryChanged.Broadcast(Tools, Props);
+				OnInventoryChanged.Broadcast(Skill, Props);
 				return Item;
 			}
 		}
@@ -107,38 +107,56 @@ bool UInventoryComponent::IsItemValid(const FItem& Item) {
 }
 
 void UInventoryComponent::UseInHandItem() {
-	if(!IsItemValid(Tools)) { return; }
+	if(!IsItemValid(Skill)) { return; }
 
-	Tools.UsageCount++;
-	if(Tools.UsageCount == Tools.MaxUsageCount) {
+	// Skill.UsageCount++;
+	// if(Skill.UsageCount >= Skill.MaxUsageCount) {
+	// 	// 销毁这个Tool
+	// 	Skill = EmptyItem;
+	// 	OnSkillDestroy.Broadcast();
+	// 	OnSelectedToolChanged.Broadcast(Skill);
+	// 	OnInventoryChanged.Broadcast(Skill, Props);
+	// }
+	//
+	
+	UseItemOnServer();
+}
+
+void UInventoryComponent::UseItemOnServer_Implementation() {
+	Skill.UsageCount++;
+	if(Skill.UsageCount >= Skill.MaxUsageCount) {
 		// 销毁这个Tool
-		Tools = EmptyItem;
+		Skill = EmptyItem;
 		OnSkillDestroy.Broadcast();
-		OnSelectedToolChanged.Broadcast(Tools);
-		OnInventoryChanged.Broadcast(Tools, Props);
+		OnSelectedToolChanged.Broadcast(Skill);
+		OnInventoryChanged.Broadcast(Skill, Props);
 	}
 }
 
 const FItem& UInventoryComponent::GetInHandItem() {
-	return Tools;
+	return Skill;
 }
 
 void UInventoryComponent::OnRep_Tools() const {
-	OnInventoryChanged.Broadcast(Tools, Props);
+	OnInventoryChanged.Broadcast(Skill, Props);
+	OnSelectedToolChanged.Broadcast(Skill);
+	if(Skill.ItemName.IsEqual(NAME_None)) {
+		OnSkillDestroy.Broadcast();
+	}
 }
 
 void UInventoryComponent::OnRep_Props() const {
-	OnInventoryChanged.Broadcast(Tools, Props);
+	OnInventoryChanged.Broadcast(Skill, Props);
 }
 
 void UInventoryComponent::OnRep_SelectedToolIndex() const {
 	// 当客户端更新的时候调用这个函数
-	OnSelectedToolChanged.Broadcast(Tools);
+	OnSelectedToolChanged.Broadcast(Skill);
 }
 
 void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(UInventoryComponent, Tools);
+	DOREPLIFETIME(UInventoryComponent, Skill);
 	DOREPLIFETIME(UInventoryComponent, Props);
 }

@@ -23,7 +23,7 @@ public:
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category="Inventory Props", ReplicatedUsing=OnRep_Tools)
-	FItem Tools;		// 能拿在手上的道具
+	FItem Skill;		// 能拿在手上的道具
 
 	UPROPERTY(BlueprintReadOnly, Category="Inventory Props", ReplicatedUsing=OnRep_Props)
 	TArray<FItem> Props;		// 不能拿在手上的道具
@@ -69,6 +69,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void UseInHandItem();
+
+	UFUNCTION(Server, Reliable)
+	void UseItemOnServer();
 	
 	UFUNCTION(BlueprintCallable)
 	const FItem& GetInHandItem();

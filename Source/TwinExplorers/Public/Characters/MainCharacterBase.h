@@ -9,6 +9,7 @@
 #include "Items/Item.h"
 #include "MainCharacterBase.generated.h"
 
+class UInputMappingContext;
 class UPhysicsConstraintComponent;
 class USpringArmComponent;
 class UPortalGenerationComponent;
@@ -56,6 +57,12 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UPhysicsConstraintComponent* PhysicsConstraint;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Skill Props")
+	TArray<UMaterialInterface*> NormalStateCharacterMaterials;			// 正常状态下的角色材质
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Skill Props")
+	TArray<UMaterialInterface*> InvisibleStateMaterials;				// 隐身状态下的角色材质
 	
 protected:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CameraPitch)
@@ -78,9 +85,10 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Team Props")
 	UMaterialInterface* HumanShirtMaterial;
-
 	
 public:
+	bool bIsTeleporting;		// 是否正在传送
+	
 	// Sets default values for this character's properties
 	AMainCharacterBase();
 
@@ -136,11 +144,31 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayAttackMontage();
 
-	UFUNCTION(BlueprintCallable, Server, Reliable)
-	void SetCharacterVisibility(bool NewVisibility);
+	// 传送技能
+	UFUNCTION(Server, Reliable)
+	void FinishTeleport();
+	UFUNCTION(Client, Reliable, BlueprintCallable)
+	void FinishSpawningPortals(UInputMappingContext* MappingContext);
 
+	// 造冰技能
+	UFUNCTION(Client, Reliable, BlueprintCallable)
+	void FinishSpawningIcePillar(UInputMappingContext* MappingContext);
+
+	// 隐身技能
+	UFUNCTION(BlueprintCallable)
+	void GettingInvisible(float LastTime);			// 开启隐身技能，并在LastTime后结束
+	UFUNCTION(Server, Reliable)
+	void SetCharacterVisibilityOnServer(bool NewVisibility);
 	UFUNCTION(NetMulticast, Reliable)
 	void SetCharacterVisibilityMulticast(bool NewVisibility);
+
+	// 加速技能
+	UFUNCTION(BlueprintCallable)
+	void SpeedUp(float LastTime, float SpeedRatio);
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void SetWalkSpeedOnServer(float NewWalkSpeed);
+	UFUNCTION(NetMulticast, Reliable)
+	void SetWalkSpeedMulticast(float NewWalkSpeed);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void GetHit();

@@ -47,6 +47,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="GameRules")
 	TArray<AActor*> SpawnItemLocations;			// 用来生成道具的位置
 
+	UPROPERTY(BlueprintReadOnly, Category="GameRules")
+	TMap<AActor*, bool> SpawnLocationStatusMap;  // 存储 SpawnLocation 的状态，如果目前生成了道具然后还没捡起来，就是true，其他的为false，表示能生成
+
 	UPROPERTY(BlueprintReadOnly)
 	TArray<ATEPlayerController*> ConnectedControllers;		// 所有连接上来的Controllers
 
@@ -72,7 +75,7 @@ private:
 	void StartRound();
 	void SetPlayerRoles();
 	void AssignCharacterTeam(AMainCharacterBase* Character, int32 Index);
-
+	
 	// 回合中事件
 	void SpawnItem();
 	void RelinkPortals() const;
@@ -89,6 +92,9 @@ private:
 	void ResetGame();
 
 	bool AreAllPlayersInfected() const;
+
+	UFUNCTION()
+	void PickedItem(AActor* SpawnLocationRef);
 
 public:
 	UFUNCTION(BlueprintCallable, Category="GameMode")

@@ -12,6 +12,8 @@
 
 class USphereComponent;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemBeingPicked, AActor*, SpawnLocationRef);
+
 UCLASS()
 class AItemActorBase : public ADragableActorBase, public IInteractableInterface {
 	GENERATED_BODY()
@@ -28,6 +30,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="ItemActorBase Comp")
 	USphereComponent* PickupSphere;			// 用来检测拾起Item的Sphere
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="ItemActorBase Comp")
+	UDecalComponent* IndicatorDecal;
 	
 protected:
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="ItemActorBase Props")
@@ -49,6 +54,12 @@ protected:
 	USoundBase* PickupSound;		// 拾取的声音
 
 	float RunningTime;
+		
+public:
+	UPROPERTY()
+	AActor* SpawnLocationActorRef;
+
+	FOnItemBeingPicked OnItemBeingPicked;
 
 public:
 	UFUNCTION()

@@ -3,6 +3,7 @@
 
 #include "Characters/MainCharacterBase.h"
 
+#include "EnhancedInputSubsystems.h"
 #include "KismetTraceUtils.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -11,6 +12,7 @@
 #include "Components/InteractComponent.h"
 #include "Components/InventoryComponent.h"
 #include "Components/PortalGenerationComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PawnMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameModes/TEGameModeBase.h"
@@ -18,6 +20,7 @@
 #include "Net/UnrealNetwork.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 
+class UEnhancedInputLocalPlayerSubsystem;
 // Sets default values
 AMainCharacterBase::AMainCharacterBase()
 {
@@ -209,11 +212,67 @@ void AMainCharacterBase::AttackDetection() {
 	}
 }
 
-void AMainCharacterBase::SetCharacterVisibilityMulticast_Implementation(bool NewVisibility) {
-	GetCapsuleComponent()->SetVisibility(NewVisibility, true);
+void AMainCharacterBase::FinishTeleport_Implementation() {
+	bIsTeleporting = false;
 }
 
-void AMainCharacterBase::SetCharacterVisibility_Implementation(bool NewVisibility) {
+void AMainCharacterBase::FinishSpawningPortals_Implementation(UInputMappingContext* MappingContext) {
+	// 在客户端中移除相关的输入
+	ATEPlayerController* PlayerController = Cast<ATEPlayerController>(GetController());
+	if(!PlayerController) { return; }
+	if(auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer())) {
+		Subsystem->RemoveMappingContext(MappingContext);
+	}
+}
+
+void AMainCharacterBase::FinishSpawningIcePillar_Implementation(UInputMappingContext* MappingContext) {
+	// 在客户端中移除相关的输入
+	ATEPlayerController* PlayerController = Cast<ATEPlayerController>(GetController());
+	if(!PlayerController) { return; }
+	if(auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer())) {
+		Subsystem->RemoveMappingContext(MappingContext);
+	}
+}
+
+void AMainCharacterBase::GettingInvisible(float LastTime) {
+	SetCharacterVisibilityOnServer(false);
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([this]() -> void {
+		this->SetCharacterVisibilityOnServer(true);
+	}), LastTime, false);
+}
+
+void AMainCharacterBase::SpeedUp(float LastTime, float SpeedRatio) {
+	float OriginalWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+	SetWalkSpeedOnServer(SpeedRatio * OriginalWalkSpeed);
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([this, OriginalWalkSpeed]() -> void {
+		this->SetWalkSpeedOnServer(OriginalWalkSpeed);
+	}), LastTime, false);
+}
+
+void AMainCharacterBase::SetWalkSpeedOnServer_Implementation(float NewWalkSpeed) {
+	GetCharacterMovement()->MaxWalkSpeed = NewWalkSpeed;
+	SetWalkSpeedMulticast(NewWalkSpeed);
+}
+
+void AMainCharacterBase::SetCharacterVisibilityMulticast_Implementation(bool NewVisibility) {
+	if(NewVisibility) {	// 不隐身
+		int32 NumMat = NormalStateCharacterMaterials.Num();
+		for(int32 Index = 0; Index < NumMat; Index++) {
+			GetMesh()->SetMaterial(Index, NormalStateCharacterMaterials[Index]);
+		}
+		// TODO: 判断是否是Enemy，如果是更换0号材质
+	} else {		// 隐身
+		int32 NumMat = InvisibleStateMaterials.Num();
+		for(int32 Index = 0; Index < NumMat; Index++) {
+			GetMesh()->SetMaterial(Index, InvisibleStateMaterials[Index]);
+		}
+		// TODO: 判断是否是Enemy，如果是更换0号材质
+	}
+}
+
+void AMainCharacterBase::SetCharacterVisibilityOnServer_Implementation(bool NewVisibility) {
 	SetCharacterVisibilityMulticast(NewVisibility);
 }
 
@@ -230,6 +289,10 @@ void AMainCharacterBase::MulticastPlayAttackMontage_Implementation() {
 
 void AMainCharacterBase::RecoverFromHit_Implementation() {
 	GetCapsuleComponent()->SetSimulatePhysics(false);
+}
+
+void AMainCharacterBase::SetWalkSpeedMulticast_Implementation(float NewWalkSpeed) {
+	GetCharacterMovement()->MaxWalkSpeed = NewWalkSpeed;
 }
 
 void AMainCharacterBase::OnRep_CameraPitch() const {
@@ -256,6 +319,10 @@ void AMainCharacterBase::InHandItemChanged(const FItem& Item) {
 }
 
 void AMainCharacterBase::Transport_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation, const FVector& TargetVelocity) {
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, "Server Set Transport");
+
+	bIsTeleporting = true;
+	
 	// 这个函数默认执行在服务器
 	float Speed = GetVelocity().Length();
 	SetActorLocationAndRotation(TargetLocation, { 0.0, TargetRotation.Yaw, 0.0 });
@@ -273,10 +340,12 @@ FVector AMainCharacterBase::GetOriginalVelocity_Implementation() {
 }
 
 void AMainCharacterBase::SetControlRotationOnClient_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) {
-	SetActorLocationAndRotation(TargetLocation, { 0.0, TargetRotation.Yaw, 0.0 });
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, "Client Set Transport");
 	if(GetController()) {		// 在客户端中设置这个ControlRotation才能生效，但是需要在服务器上做一次来保证得到正确的速度方向
 		GetController()->SetControlRotation(TargetRotation);
 	}
+
+	FinishTeleport();
 }
 
 void AMainCharacterBase::InHandItemChangedOnServer_Implementation(const FItem& Item) {
