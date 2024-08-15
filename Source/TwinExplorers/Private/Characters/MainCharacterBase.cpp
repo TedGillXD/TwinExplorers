@@ -16,8 +16,11 @@
 #include "GameFramework/PawnMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameModes/TEGameModeBase.h"
+#include "NiagaraComponent.h"
+#include "Components/ArrowComponent.h"
 #include "Items/Skill.h"
 #include "Net/UnrealNetwork.h"
+#include "Objects/ThrowableObject.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 
 class UEnhancedInputLocalPlayerSubsystem;
@@ -25,7 +28,7 @@ class UEnhancedInputLocalPlayerSubsystem;
 AMainCharacterBase::AMainCharacterBase()
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	// Character的基本设置
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
@@ -60,6 +63,12 @@ AMainCharacterBase::AMainCharacterBase()
 
     PhysicsConstraint = CreateDefaultSubobject<UPhysicsConstraintComponent>(TEXT("PhysicsConstraint"));
 	PhysicsConstraint->SetConstrainedComponents(GetCapsuleComponent(), NAME_None, nullptr, NAME_None);
+
+	NiagaraParticleComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("NiagaraComp"));
+	NiagaraParticleComponent->SetupAttachment(GetRootComponent());
+
+	ThrowDirection = CreateDefaultSubobject<UArrowComponent>(TEXT("ThrowDirection"));
+	ThrowDirection->SetupAttachment(GetMesh(), FName("hand"));
 	
     // 绑定更换手中道具的函数
     InventoryComponent->OnSelectedToolChanged.AddDynamic(this, &AMainCharacterBase::InHandItemChanged);
@@ -212,6 +221,14 @@ void AMainCharacterBase::AttackDetection() {
 	}
 }
 
+void AMainCharacterBase::PlayMontageBroadcast_Implementation(UAnimMontage* Montage, float PlayRate) {
+	PlayAnimMontage(Montage, PlayRate);
+}
+
+void AMainCharacterBase::PlayMontageOnAllClient_Implementation(UAnimMontage* Montage, float PlayRate) {
+	PlayMontageBroadcast(Montage, PlayRate);
+}
+
 void AMainCharacterBase::FinishTeleport_Implementation() {
 	bIsTeleporting = false;
 }
@@ -231,6 +248,47 @@ void AMainCharacterBase::FinishSpawningIcePillar_Implementation(UInputMappingCon
 	if(!PlayerController) { return; }
 	if(auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer())) {
 		Subsystem->RemoveMappingContext(MappingContext);
+	}
+}
+
+void AMainCharacterBase::ThrowObject(TSubclassOf<AThrowableObject> ActorClass) {
+	FVector ActorForward = GetActorForwardVector();
+	ActorForward.Z += ThrowDirection->GetForwardVector().Z;
+	SpawnThrowingObjectOnServer(ActorClass, ActorForward);
+}
+
+void AMainCharacterBase::StepOnBananaPeel(float LastTime, AActor* PeelNeedToDestroy) {
+	PeelNeedToDestroy->Destroy();
+	StepOnBananaPeelOnClient(LastTime);
+}
+
+void AMainCharacterBase::StepOnBananaPeelOnClient_Implementation(float LastTime) {
+	ATEPlayerController* PlayerController = Cast<ATEPlayerController>(GetController());
+	// 设置输入反转
+	PlayerController->InvertMovement();		// 反转操控
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([PlayerController]() -> void {
+		PlayerController->RestoreMovement();		// 恢复操控
+	}), LastTime, false);
+}
+
+void AMainCharacterBase::SpawnThrowingObjectOnServer_Implementation(TSubclassOf<AThrowableObject> ActorClass, const FVector& Direction) {
+	// 1. 获取手部位置
+	FVector HandLocation = GetMesh()->GetSocketLocation(FName("hand"));
+
+	// 2. 在手部位置生成对象
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.Instigator = GetInstigator();
+	AThrowableObject* Throwable = GetWorld()->SpawnActor<AThrowableObject>(ActorClass, HandLocation, {}, SpawnParams);
+
+	// 3. 给予一个初始速度
+	if (Throwable) {
+		// 设置物理和初始速度
+		if (Throwable->GetStaticMeshComp()) {
+			Throwable->GetStaticMeshComp()->SetSimulatePhysics(true);
+			Throwable->GetStaticMeshComp()->SetPhysicsLinearVelocity(Direction * 1000.f);
+		}
 	}
 }
 
@@ -307,6 +365,8 @@ void AMainCharacterBase::OnRep_CharacterTeam() const {
 		GetMesh()->SetMaterial(0, HumanShirtMaterial);
 	} else {
 		GetMesh()->SetMaterial(0, EnemyShirtMaterial);
+		NiagaraParticleComponent->Deactivate();
+		NiagaraParticleComponent->Activate(true);
 	}
 }
 

@@ -88,7 +88,7 @@ void AItemActorBase::Interact_Implementation(APawn* FromPawn, const FItem& InHan
 			Controller->PlaySoundOnClient(PickupSound);
 		}
 
-		OnItemBeingPicked.Broadcast(SpawnLocationActorRef);
+		OnItemBeingPicked.Broadcast(SpawnLocationActorRef, this);
 		this->Destroy();
 	}
 }

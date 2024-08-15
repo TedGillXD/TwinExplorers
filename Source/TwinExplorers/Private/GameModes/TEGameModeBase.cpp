@@ -70,14 +70,12 @@ void ATEGameModeBase::StartRoundPrepare() {
 
 void ATEGameModeBase::StartRound() {
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Round Start!"));
+	// 更新HUD上方的倒计时
 	for(ATEPlayerController* Controller : ConnectedControllers) {
-		Controller->UpdateCountDownTitle(FString(TEXT("距离本回合结束还有")), RoundTime);
+		Controller->StartRound(RoundTime, FString(TEXT("距离本回合结束还有")), ItemSpawnInterval, FString(TEXT("距离下一轮道具生成还有")));
 	}
 	
 	GetWorldTimerManager().SetTimer(TimerHandle_ItemSpawn, this, &ATEGameModeBase::SpawnItem, ItemSpawnInterval, true);		// 开始生成道具倒计时
-	for(ATEPlayerController* Controller : ConnectedControllers) {
-		Controller->UpdateEventCountDownTitle(FString(TEXT("距离下一轮道具生成还有")), ItemSpawnInterval);
-	}
 	EventTimeLeft = ItemSpawnInterval;		// 重置EventTimeLeft
 	GetWorldTimerManager().SetTimer(TimerHandle_ItemSpawnCountDown, this, &ATEGameModeBase::ItemSpawnCountDown, 1.f, true);
 
@@ -126,6 +124,7 @@ void ATEGameModeBase::SpawnItem() {
 		AItemActorBase* ItemActor = GetWorld()->SpawnActor<AItemActorBase>(SelectedItemClass, SpawnLocation, SpawnRotation);
 		ItemActor->SpawnLocationActorRef = SpawnLocationActor;
 		ItemActor->OnItemBeingPicked.AddDynamic(this, &ATEGameModeBase::PickedItem);
+		SpawnedItems.Add(ItemActor);
 
 		// 更新SpawnLocation的状态为true，表示已生成物品
 		SpawnLocationStatusMap[SpawnLocationActor] = true;
@@ -239,9 +238,10 @@ void ATEGameModeBase::KickAllPlayer() {
 
 void ATEGameModeBase::IntoPrepareStage() {
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Waiting for rest of the players!"));
-
+	
+	// 更新HUD上方的倒计时
 	for(ATEPlayerController* Controller : ConnectedControllers) {
-		Controller->UpdateCountDownTitle(FString(TEXT("距离正式开始还有")), StartWaitTime);
+		Controller->EnterPrepareStage(RoundTime, FString(TEXT("距离正式开始还有")));
 	}
 
 	CurrentStartWaitTimeLeft = StartWaitTime;			// 重置准备时间
@@ -268,6 +268,27 @@ void ATEGameModeBase::CountDown() {
 }
 
 void ATEGameModeBase::ResetGame() {
+	// 重置整个游戏，重新等待玩家的加入
+	// 停止所有相关的计时器
+	GetWorldTimerManager().ClearAllTimersForObject(this);
+
+	// 重置游戏状态
+	CurrentRoundTimeLeft = RoundTime;  // 重置回合时间
+	EventTimeLeft = ItemSpawnInterval; // 重置道具生成时间
+
+	// 清除场地上的所有道具
+	for (TPair<AActor*, bool>& Pair : SpawnLocationStatusMap) {
+		Pair.Value = false; // 标记所有生成点为未生成状态
+	}
+	for (AActor* Item : SpawnedItems) {
+		Item->Destroy();
+	}
+	SpawnedItems.Empty();
+
+	// 清空玩家列表
+	ConnectedControllers.Empty();
+
+	// TODO: 重置其他必要的游戏逻辑或变量
 	
 }
 
@@ -281,9 +302,10 @@ bool ATEGameModeBase::AreAllPlayersInfected() const {
 	return true; // 所有玩家均已被感染
 }
 
-void ATEGameModeBase::PickedItem(AActor* SpawnLocationRef) {
+void ATEGameModeBase::PickedItem(AActor* SpawnLocationRef, AItemActorBase* Self) {
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow, SpawnLocationRef->GetName() + " Reset!");
 	SpawnLocationStatusMap[SpawnLocationRef] = false;
+	SpawnedItems.Remove(Self);
 }
 
 void ATEGameModeBase::CheckGameOver() {

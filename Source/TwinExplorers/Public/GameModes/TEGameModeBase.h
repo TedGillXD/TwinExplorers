@@ -50,6 +50,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="GameRules")
 	TMap<AActor*, bool> SpawnLocationStatusMap;  // 存储 SpawnLocation 的状态，如果目前生成了道具然后还没捡起来，就是true，其他的为false，表示能生成
 
+	UPROPERTY(BlueprintReadOnly, Category="GameRules")
+	TArray<AActor*> SpawnedItems;			// 所有生成后仍然未被拾取的道具
+
 	UPROPERTY(BlueprintReadOnly)
 	TArray<ATEPlayerController*> ConnectedControllers;		// 所有连接上来的Controllers
 
@@ -94,7 +97,7 @@ private:
 	bool AreAllPlayersInfected() const;
 
 	UFUNCTION()
-	void PickedItem(AActor* SpawnLocationRef);
+	void PickedItem(AActor* SpawnLocationRef, AItemActorBase* Self);
 
 public:
 	UFUNCTION(BlueprintCallable, Category="GameMode")

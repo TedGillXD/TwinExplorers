@@ -108,16 +108,6 @@ bool UInventoryComponent::IsItemValid(const FItem& Item) {
 
 void UInventoryComponent::UseInHandItem() {
 	if(!IsItemValid(Skill)) { return; }
-
-	// Skill.UsageCount++;
-	// if(Skill.UsageCount >= Skill.MaxUsageCount) {
-	// 	// 销毁这个Tool
-	// 	Skill = EmptyItem;
-	// 	OnSkillDestroy.Broadcast();
-	// 	OnSelectedToolChanged.Broadcast(Skill);
-	// 	OnInventoryChanged.Broadcast(Skill, Props);
-	// }
-	//
 	
 	UseItemOnServer();
 }

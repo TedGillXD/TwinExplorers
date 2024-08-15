@@ -304,15 +304,15 @@ EOptimizedLevel APortalV2::GetOptimizationLevel(const FTransform& CameraTransfor
 }
 
 void APortalV2::EnableSceneCapture() {
-	if(bIsEnabled) { return; }
-	PortalCamera->Enable();
-	bIsEnabled = true;
+	// if(bIsEnabled) { return; }
+	// // PortalCamera->Enable();
+	// bIsEnabled = true;
 }
 
 void APortalV2::DisableSceneCapture() {
-	if(!bIsEnabled) { return; }
-	PortalCamera->Disable();
-	bIsEnabled = false;
+	// if(!bIsEnabled) { return; }
+	// // PortalCamera->Disable();
+	// bIsEnabled = false;
 }
 
 void APortalV2::SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel) {
@@ -343,22 +343,22 @@ void APortalV2::SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel) {
 void APortalV2::SetToLevel0Resolution() const {
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
-	LinkedPortal->PortalRT->ResizeTarget(Size.X, Size.Y);
-	LinkedPortal->PortalCamera->ChangeFramePerSec(60);
+	ResizeTextureToMatchViewport(Size);
+	LinkedPortal->PortalCamera->ChangeFramePerSec(40);
 }
 
 void APortalV2::SetToLevel1Resolution() const {
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
-	LinkedPortal->PortalRT->ResizeTarget(Size.X / 2, Size.Y / 2);
-	LinkedPortal->PortalCamera->ChangeFramePerSec(40);
+	ResizeTextureToMatchViewport(Size / 2);
+	LinkedPortal->PortalCamera->ChangeFramePerSec(30);
 }
 
 void APortalV2::SetToLevel2Resolution() const {
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
-	LinkedPortal->PortalRT->ResizeTarget(Size.X / 2, Size.Y / 2);
-	LinkedPortal->PortalCamera->ChangeFramePerSec(30);
+	ResizeTextureToMatchViewport(Size / 2);
+	LinkedPortal->PortalCamera->ChangeFramePerSec(25);
 }
 
 void APortalV2::ResizeTextureToMatchViewport(const FVector2D& DesiredSize) const {

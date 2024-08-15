@@ -128,6 +128,20 @@ void ATEPlayerController::SetupInputComponent() {
 	}
 }
 
+void ATEPlayerController::InvertMovement() {
+	if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer())) {
+		Subsystem->AddMappingContext(InvertedPlayingMappingContext, 1);
+	}
+}
+
+void ATEPlayerController::RestoreMovement() {
+	if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer())) {
+		FModifyContextOptions Options{};
+		Options.bIgnoreAllPressedKeysUntilRelease = false;
+		Subsystem->RemoveMappingContext(InvertedPlayingMappingContext, Options);
+	}
+}
+
 void ATEPlayerController::UpdateCountDown_Implementation(int32 RoundTime) {
 	OnRoundCountDownChanged.Broadcast(RoundTime);
 }
@@ -137,7 +151,13 @@ void ATEPlayerController::UpdateCountDownTitle_Implementation(const FString& Str
 }
 
 void ATEPlayerController::EndRound_Implementation(bool bIsHumanWin) {
+	RoundStage = ERoundStage::EndRound;
+	OnStageChanged.Broadcast(RoundStage);
+	
+	// 1. 播报比赛结束
 	OnRoundEnd.Broadcast(bIsHumanWin);
+
+	// 2. 禁止玩家继续进行输入
 	DisableInput(this);
 }
 
@@ -159,6 +179,27 @@ void ATEPlayerController::UpdateEventCountDown_Implementation(int32 CurrentStart
 
 void ATEPlayerController::UpdateEventCountDownTitle_Implementation(const FString& String, int32 StageTime) {
 	OnEventTitleChanged.Broadcast(String, StageTime);
+}
+
+void ATEPlayerController::EnterPrepareStage_Implementation(int32 StageTime, const FString& StageTitle) {
+	RoundStage = Preparing;
+	
+	// 1. 设置倒计时标题
+	OnRoundTitleChanged.Broadcast(StageTitle, StageTime);
+	
+	// 2. 隐藏事件倒计时
+	OnStageChanged.Broadcast(RoundStage);
+}
+
+void ATEPlayerController::StartRound_Implementation(int32 StageTime, const FString& StageTitle, int32 EventTime, const FString& EventTitle) {
+	RoundStage = InRound;
+	
+	// 1. 设置阶段倒计时
+	OnRoundTitleChanged.Broadcast(StageTitle, StageTime);
+
+	// 2. 设置事件倒计时并接触事件倒计时隐藏
+	OnEventTitleChanged.Broadcast(EventTitle, EventTime);
+	OnStageChanged.Broadcast(RoundStage);
 }
 
 void ATEPlayerController::BindInputContext() const {

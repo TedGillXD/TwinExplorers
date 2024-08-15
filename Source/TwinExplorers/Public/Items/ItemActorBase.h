@@ -11,8 +11,9 @@
 #include "ItemActorBase.generated.h"
 
 class USphereComponent;
+class AItemActorBase;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemBeingPicked, AActor*, SpawnLocationRef);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnItemBeingPicked, AActor*, SpawnLocationRef, AItemActorBase*, Self);
 
 UCLASS()
 class AItemActorBase : public ADragableActorBase, public IInteractableInterface {

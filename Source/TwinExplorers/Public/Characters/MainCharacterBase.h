@@ -9,6 +9,8 @@
 #include "Items/Item.h"
 #include "MainCharacterBase.generated.h"
 
+class AThrowableObject;
+class UNiagaraComponent;
 class UInputMappingContext;
 class UPhysicsConstraintComponent;
 class USpringArmComponent;
@@ -53,10 +55,16 @@ protected:
 	UChildActorComponent* InHandItemActor;			// 握在手里的东西，开启复制这样就能把InHandItemActor的变化同步到客户端
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
+	UArrowComponent* ThrowDirection;			// 用来指示丢出物品方向的箭头
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UIceGenerationComponent* IceGenerationComponent;		// 用来在特定的表面上生成柱子的功能
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UPhysicsConstraintComponent* PhysicsConstraint;
+	
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
+	UNiagaraComponent* NiagaraParticleComponent;
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Skill Props")
 	TArray<UMaterialInterface*> NormalStateCharacterMaterials;			// 正常状态下的角色材质
@@ -85,6 +93,8 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Team Props")
 	UMaterialInterface* HumanShirtMaterial;
+
+	bool bShouldPlayParticle;
 	
 public:
 	bool bIsTeleporting;		// 是否正在传送
@@ -144,11 +154,28 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayAttackMontage();
 
+	UFUNCTION(Server, Reliable, BlueprintCallable)
+	void PlayMontageOnAllClient(UAnimMontage* Montage, float PlayRate);
+	UFUNCTION(NetMulticast, Reliable)
+	void PlayMontageBroadcast(UAnimMontage* Montage, float PlayRate);
+
 	// 传送技能
 	UFUNCTION(Server, Reliable)
 	void FinishTeleport();
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void FinishSpawningPortals(UInputMappingContext* MappingContext);
+
+	// 丢香蕉皮技能
+	UFUNCTION(BlueprintCallable)
+	void ThrowObject(TSubclassOf<AThrowableObject> ActorClass);
+	UFUNCTION(Server, Reliable)
+	void SpawnThrowingObjectOnServer(TSubclassOf<AThrowableObject> ActorClass, const FVector& Direction);
+
+	// 收到香蕉皮技能
+	UFUNCTION(BlueprintCallable)
+	void StepOnBananaPeel(float LastTime, AActor* PeelNeedToDestroy);
+	UFUNCTION(Client, Reliable)
+	void StepOnBananaPeelOnClient(float LastTime);
 
 	// 造冰技能
 	UFUNCTION(Client, Reliable, BlueprintCallable)
