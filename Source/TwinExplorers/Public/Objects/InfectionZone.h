@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "InfectionZone.generated.h"
 
+class UBillboardComponent;
 class UBoxComponent;
 
 UCLASS()
@@ -14,6 +15,9 @@ class TWINEXPLORERS_API AInfectionZone : public AActor
 	GENERATED_BODY()
 
 protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	USceneComponent* Root;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
 	UBoxComponent* BoxComponent;
 

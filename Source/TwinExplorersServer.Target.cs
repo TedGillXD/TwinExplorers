@@ -3,11 +3,11 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
-public class TwinExplorersEditorTarget : TargetRules
+public class TwinExplorersServerTarget : TargetRules
 {
-	public TwinExplorersEditorTarget(TargetInfo Target) : base(Target)
+	public TwinExplorersServerTarget(TargetInfo Target) : base(Target)
 	{
-		Type = TargetType.Editor;
+		Type = TargetType.Server;
 		DefaultBuildSettings = BuildSettingsVersion.V4;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_3;
 		ExtraModuleNames.Add("TwinExplorers");

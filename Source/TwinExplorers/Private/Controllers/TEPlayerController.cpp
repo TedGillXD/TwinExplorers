@@ -7,7 +7,6 @@
 #include "EnhancedInputSubsystems.h"
 #include "CommonInputSubsystem.h"
 #include "InputActionValue.h"
-#include "AssetTypeActions/AssetDefinition_SoundBase.h"
 #include "Characters/MainCharacterBase.h"
 #include "Components/InteractComponent.h"
 #include "GameFramework/Character.h"
@@ -140,6 +139,16 @@ void ATEPlayerController::RestoreMovement() {
 		Options.bIgnoreAllPressedKeysUntilRelease = false;
 		Subsystem->RemoveMappingContext(InvertedPlayingMappingContext, Options);
 	}
+}
+
+void ATEPlayerController::FocusOnGame_Implementation() {
+	if(UGameViewportClient* GameViewportClient = GetWorld()->GetGameViewport()) {
+		GameViewportClient->Viewport->CaptureMouse(true);
+	}
+	
+	FInputModeGameOnly InputMode;
+	this->SetInputMode(InputMode);
+	this->bShowMouseCursor = false;
 }
 
 void ATEPlayerController::UpdateCountDown_Implementation(int32 RoundTime) {

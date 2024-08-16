@@ -138,6 +138,9 @@ public:
 	void RestoreMovement();
 
 public:
+	UFUNCTION(Client, Reliable)
+	void FocusOnGame();
+	
 	// 事件倒计时
 	UFUNCTION(Client, Reliable)
 	void UpdateEventCountDown(int32 CurrentStartWaitTimeLeft);

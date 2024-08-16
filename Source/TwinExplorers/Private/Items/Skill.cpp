@@ -10,7 +10,6 @@ ASkill::ASkill()
 	PrimaryActorTick.bCanEverTick = false;
 
 	bReplicates = true;
-	this->SetReplicates(true);
 }
 
 // Called when the game starts or when spawned

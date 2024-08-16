@@ -34,7 +34,11 @@ void ATEGameModeBase::BeginPlay() {
 void ATEGameModeBase::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) {
 	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
 
-	ConnectedControllers.Add(Cast<ATEPlayerController>(NewPlayer));
+	ATEPlayerController* PlayerController = Cast<ATEPlayerController>(NewPlayer);
+	if(PlayerController) {
+		PlayerController->FocusOnGame();
+		ConnectedControllers.Add(PlayerController);
+	}
 
 	// 当加入到足够多的人数之后，开始进入准备阶段，此时玩家仍然可以加入
 	if (ConnectedControllers.Num() >= RoundPlayerCount) {
@@ -192,11 +196,9 @@ void ATEGameModeBase::EndRound() {
 		Controller->EndRound(bHumanRemaining);
 	}
 
-	FTimerHandle TimerHandle_KickAllPlayers;
-	GetWorldTimerManager().SetTimer(TimerHandle_KickAllPlayers, this, &ATEGameModeBase::KickAllPlayer, 5.f, false);
-
-	// 重新开始一局游戏
-	ResetGame();
+	// 5秒后重置游戏，并踢掉所有玩家
+	FTimerHandle TimerHandle_Reset;
+	GetWorldTimerManager().SetTimer(TimerHandle_Reset, this, &ATEGameModeBase::ResetGame, 5.f, false);
 }
 
 void ATEGameModeBase::SetPlayerRoles() {
@@ -227,12 +229,6 @@ void ATEGameModeBase::AssignCharacterTeam(AMainCharacterBase* Character, int32 I
 		} else {
 			Character->SetCharacterTeam(ECharacterTeam::Human); // 其他玩家是人
 		}
-	}
-}
-
-void ATEGameModeBase::KickAllPlayer() {
-	for(ATEPlayerController* Controller : ConnectedControllers) {
-		Controller->BackToMainMenuLevel();
 	}
 }
 
@@ -285,7 +281,10 @@ void ATEGameModeBase::ResetGame() {
 	}
 	SpawnedItems.Empty();
 
-	// 清空玩家列表
+	// 踢掉所有玩家
+	for(ATEPlayerController* Controller : ConnectedControllers) {
+		Controller->BackToMainMenuLevel();
+	}
 	ConnectedControllers.Empty();
 
 	// TODO: 重置其他必要的游戏逻辑或变量

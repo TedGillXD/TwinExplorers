@@ -13,13 +13,14 @@ AInfectionZone::AInfectionZone()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 
+	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
+	SetRootComponent(Root);
+
 	BoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent"));
-	SetRootComponent(BoxComponent);
+	BoxComponent->SetupAttachment(GetRootComponent());
 
 	TargetLocation = CreateDefaultSubobject<UBillboardComponent>(TEXT("TargetLocation"));
-	TargetLocation->SetupAttachment(RootComponent);
-	
-	BoxComponent->OnComponentBeginOverlap.AddDynamic(this, &AInfectionZone::OnOverlapBegin);
+	TargetLocation->SetupAttachment(GetRootComponent());
 }
 
 void AInfectionZone::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
@@ -42,5 +43,6 @@ void AInfectionZone::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor*
 // Called when the game starts or when spawned
 void AInfectionZone::BeginPlay() {
 	Super::BeginPlay();
-	
+
+	BoxComponent->OnComponentBeginOverlap.AddDynamic(this, &AInfectionZone::OnOverlapBegin);
 }
