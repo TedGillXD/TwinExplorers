@@ -138,12 +138,43 @@ void APortalV2::LeavePortal(UPrimitiveComponent* OverlappedComponent, AActor* Ot
 	bIsTeleporting = false;
 }
 
-void APortalV2::Relink(APortalV2* Portal1, APortalV2* Portal2) {
+void APortalV2::SetRingColor(const FLinearColor& Color) {
+	// 这个函数运行在服务器
+	RingColor = Color;
+}
+
+void APortalV2::UpdateRingColor(const FLinearColor& Color) {
+	UMaterialInterface* Material = PortalPlane->GetMaterial(0);
+	if (!Material) {
+		UE_LOG(LogTemp, Error, TEXT("Material of PortalPlane is nullptr"));
+		return;
+	}
+
+	UMaterialInstanceDynamic* MaterialInstance = Cast<UMaterialInstanceDynamic>(Material);
+	if (!MaterialInstance) {
+		// 如果当前材质不是UMaterialInstanceDynamic，则创建一个新的动态实例
+		MaterialInstance = UMaterialInstanceDynamic::Create(Material, this);
+		if (MaterialInstance) {
+			// 将新创建的动态实例应用到网格上
+			PortalPlane->SetMaterial(0, MaterialInstance);
+		} else {
+			UE_LOG(LogTemp, Error, TEXT("Failed to create a dynamic material instance"));
+			return;
+		}
+	}
+
+	// 设置RingColor参数
+	MaterialInstance->SetVectorParameterValue(FName("RingColor"), Color);
+}
+
+void APortalV2::Relink(APortalV2* Portal1, APortalV2* Portal2, FLinearColor NewColor) {
 	// 将两个传送门进行链接
 	if (!Portal1 || !Portal2 || Portal1 == Portal2) { return; }
 
 	if(Portal1->HasAuthority() && Portal2->HasAuthority()) {
 		Portal1->LinkPortal(Portal2);
+		Portal1->SetRingColor(NewColor);
+		Portal2->SetRingColor(NewColor);
 	}
 }
 
@@ -162,7 +193,7 @@ void APortalV2::Init() {
 	}
 
 	PortalMatInstance->SetTextureParameterValue(FName("Texture"), PortalRT);
-	// TODO: 修改门框颜色
+	PortalMatInstance->SetVectorParameterValue(FName("RingColor"), RingColor);
 	
 	LinkedPortal->PortalCamera->TextureTarget = PortalRT;
 	SetClipPlane();
@@ -177,8 +208,10 @@ void APortalV2::LinkPortal(APortalV2* OtherPortal) {
 	if(HasAuthority()) {
 		LinkedPortal = OtherPortal;
 		OtherPortal->LinkedPortal = this;
+		UE_LOG(LogTemp, Warning, TEXT("LinkPortal on Server"));
 	} else {
 		LinkPortalOnServer(OtherPortal);
+		UE_LOG(LogTemp, Warning, TEXT("LinkPortal on Client"));
 	}
 }
 
@@ -186,6 +219,11 @@ void APortalV2::OnRep_LinkedPortal() {
 	if(LinkedPortal) {
 		this->Init();
 	}
+}
+
+void APortalV2::OnRep_RingColor() {
+	UpdateRingColor(RingColor);
+	UE_LOG(LogTemp, Warning, TEXT("Update ring color"));
 }
 
 void APortalV2::SetClipPlane() const {
@@ -385,4 +423,5 @@ void APortalV2::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 
 	DOREPLIFETIME(APortalV2, LinkedPortal);
 	DOREPLIFETIME(APortalV2, bIsTeleporting);
+	DOREPLIFETIME(APortalV2, RingColor);
 }

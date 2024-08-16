@@ -48,6 +48,8 @@ protected:
     bool bIsGeneratingPortal1; // 是否正在生成Portal1
     bool bIsGeneratingPortal2; // 是否正在生成Portal2
 
+    FLinearColor PortalRingColor;
+
 public:
     UPortalGenerationComponent();
 

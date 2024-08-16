@@ -57,13 +57,15 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category="Portal Props")
 	UTextureRenderTarget2D* PortalRT;		// PortalCamera的RenderTarget
-
+	
 	UPROPERTY(BlueprintReadOnly, Category="Portal Props")
 	UMaterialInstanceDynamic* PortalMatInstance;
 
 	UPROPERTY(BlueprintReadOnly, Category="Portal Props", EditAnywhere, ReplicatedUsing=OnRep_LinkedPortal)
 	APortalV2* LinkedPortal;
 
+	UPROPERTY(ReplicatedUsing=OnRep_RingColor)
+	FLinearColor RingColor;
 
 	UPROPERTY()
 	AMainCharacterBase* LocalCharacter;
@@ -97,8 +99,11 @@ public:
 	UFUNCTION()
 	void LeavePortal(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
+	void SetRingColor(const FLinearColor& Color);
+	void UpdateRingColor(const FLinearColor& Color);
+
 	UFUNCTION(BlueprintCallable)
-	static void Relink(APortalV2* Portal1, APortalV2* Portal2);
+	static void Relink(APortalV2* Portal1, APortalV2* Portal2, FLinearColor NewColor);
 	
 private:
 	UFUNCTION(Server, Reliable)
@@ -107,6 +112,9 @@ private:
 
 	UFUNCTION()
 	void OnRep_LinkedPortal();
+
+	UFUNCTION()
+	void OnRep_RingColor();
 
 	// PortalPlane的设置
 	void Init();

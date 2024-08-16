@@ -67,6 +67,9 @@ AMainCharacterBase::AMainCharacterBase()
 	NiagaraParticleComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("NiagaraComp"));
 	NiagaraParticleComponent->SetupAttachment(GetRootComponent());
 
+	DizzyParticleComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("DizzyNiagara"));
+	DizzyParticleComponent->SetupAttachment(GetRootComponent());
+
 	ThrowDirection = CreateDefaultSubobject<UArrowComponent>(TEXT("ThrowDirection"));
 	ThrowDirection->SetupAttachment(GetMesh(), FName("hand"));
 	
@@ -258,7 +261,15 @@ void AMainCharacterBase::ThrowObject(TSubclassOf<AThrowableObject> ActorClass) {
 }
 
 void AMainCharacterBase::StepOnBananaPeel(float LastTime, AActor* PeelNeedToDestroy) {
+	// 角色状态改变
+	CharacterState = Dizzy;
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([this]() -> void {
+		CharacterState = Normal;
+	}), LastTime, false);
 	PeelNeedToDestroy->Destroy();
+
+	// 通知客户端完成按键调转
 	StepOnBananaPeelOnClient(LastTime);
 }
 
@@ -370,6 +381,22 @@ void AMainCharacterBase::OnRep_CharacterTeam() const {
 	}
 }
 
+void AMainCharacterBase::OnRep_CharacterState() const {
+	if(CharacterState == Dizzy) {
+		// 触发相关的Niagara
+		DizzyParticleComponent->Deactivate();
+		DizzyParticleComponent->Activate();
+		return;
+	} else if(CharacterState == Stun) {
+		// TODO: 触发相关的Niagara
+		return;
+	}
+
+	// 关闭相关的Niagara
+	DizzyParticleComponent->Deactivate();
+	return;
+}
+
 void AMainCharacterBase::InHandItemChanged(const FItem& Item) {
 	if(HasAuthority()) {
 		InHandItemActor->SetChildActorClass(Item.ItemActorClass);
@@ -426,4 +453,5 @@ void AMainCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AMainCharacterBase, CameraPitch, COND_None);
 	DOREPLIFETIME(AMainCharacterBase, CharacterTeam);
 	DOREPLIFETIME_CONDITION(AMainCharacterBase, bIsAttacking, COND_OwnerOnly);
+	DOREPLIFETIME(AMainCharacterBase, CharacterState);
 }

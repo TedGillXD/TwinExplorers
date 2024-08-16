@@ -148,9 +148,9 @@ void ATEGameModeBase::RelinkPortals() const {
 		APortalV2* Portal1 = Cast<APortalV2>(Portals[i]);
 		APortalV2* Portal2 = Cast<APortalV2>(Portals[i + 1]);
 
-		if (Portal1 && Portal2) {
-			APortalV2::Relink(Portal1, Portal2);
-		}
+		// if (Portal1 && Portal2) {
+		// 	APortalV2::Relink(Portal1, Portal2, );
+		// }
 	}
 }
 

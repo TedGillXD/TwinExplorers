@@ -27,6 +27,13 @@ enum class ECharacterTeam : uint8 {
 	Enemy UMETA(DisplayName = "Enemy")
 };
 
+UENUM(BlueprintType)
+enum ECharacterState {
+	Normal,
+	Stun,			// 眩晕状态，被锤子打中的时候进入
+	Dizzy,			// 混乱状态，踩到香蕉皮进入
+};
+
 UCLASS()
 class TWINEXPLORERS_API AMainCharacterBase : public ACharacter, public ITransportableInterface
 {
@@ -66,11 +73,17 @@ protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UNiagaraComponent* NiagaraParticleComponent;
 
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
+	UNiagaraComponent* DizzyParticleComponent;		// 眩晕效果的Particle
+
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Skill Props")
 	TArray<UMaterialInterface*> NormalStateCharacterMaterials;			// 正常状态下的角色材质
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Skill Props")
 	TArray<UMaterialInterface*> InvisibleStateMaterials;				// 隐身状态下的角色材质
+
+	UPROPERTY(BlueprintReadOnly, Category="Character State", ReplicatedUsing=OnRep_CharacterState)
+	TEnumAsByte<ECharacterState> CharacterState;
 	
 protected:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_CameraPitch)
@@ -209,6 +222,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_CharacterTeam() const;
+
+	UFUNCTION()
+	void OnRep_CharacterState() const;
 
 	// 负责将客户端角色的CameraPitch更新到服务器
 	UFUNCTION(Server, Unreliable)

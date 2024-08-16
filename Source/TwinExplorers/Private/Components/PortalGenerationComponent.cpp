@@ -5,6 +5,8 @@
 
 #include "Camera/CameraComponent.h"
 #include "Characters/MainCharacterBase.h"
+#include "GameStates/MainLevelGameState.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "Objects/PortalV2.h"
@@ -86,6 +88,11 @@ void UPortalGenerationComponent::ResetOnServer_Implementation() {
 	bCanGeneratePortal2 = true;
 	PortalRef1 = nullptr;
 	PortalRef2 = nullptr;
+	
+	// 获取传送门Ring颜色
+	AMainLevelGameState* GameState = Cast<AMainLevelGameState>(UGameplayStatics::GetGameState(GetWorld()));
+	if(!GameState) { return; }
+	PortalRingColor = GameState->GetAvailableColor();
 }
 
 bool UPortalGenerationComponent::IsPortal1Exist() const {
@@ -187,6 +194,7 @@ bool UPortalGenerationComponent::CheckOverlap(const FVector& NewLocation, const 
 }
 
 void UPortalGenerationComponent::SpawnPortal1AtLocationAndRotation_Implementation(const FVector& NewLocation, const FRotator& NewRotation) {
+	// 此函数运行在服务器
 	if (!bCanGeneratePortal1) { return; }
 	if (bIsGeneratingPortal1) { return; }
 	bIsGeneratingPortal1 = true;
@@ -195,17 +203,21 @@ void UPortalGenerationComponent::SpawnPortal1AtLocationAndRotation_Implementatio
 	Transform.SetLocation(NewLocation);
 	Transform.SetRotation(NewRotation.Quaternion());
 	Transform.SetScale3D(FVector(1.0f, 1.0f, 1.0f));
-
+	
 	PortalRef1 = GetWorld()->SpawnActorDeferred<APortalV2>(PortalClass, Transform, Owner, Owner, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	PortalRef1->SetRingColor(PortalRingColor);
 	PortalRef1->FinishSpawning(Transform);
 
 	bCanGeneratePortal1 = false;
 	bIsGeneratingPortal1 = false;
 
-	if(PortalRef1 && PortalRef2) { APortalV2::Relink(PortalRef1, PortalRef2); }
+	if(PortalRef1 && PortalRef2) {
+		APortalV2::Relink(PortalRef1, PortalRef2, PortalRingColor);
+	}
 }
 
 void UPortalGenerationComponent::SpawnPortal2AtLocationAndRotation_Implementation(const FVector& NewLocation, const FRotator& NewRotation) {
+	// 此函数运行在服务器
 	if (!bCanGeneratePortal2) { return; }
 	if (bIsGeneratingPortal2) { return; }
 	bIsGeneratingPortal2 = true;
@@ -214,14 +226,17 @@ void UPortalGenerationComponent::SpawnPortal2AtLocationAndRotation_Implementatio
 	Transform.SetLocation(NewLocation);
 	Transform.SetRotation(NewRotation.Quaternion());
 	Transform.SetScale3D(FVector(1.0f, 1.0f, 1.0f));
-
+	
 	PortalRef2 = GetWorld()->SpawnActorDeferred<APortalV2>(PortalClass, Transform, Owner, Owner, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	PortalRef2->SetRingColor(PortalRingColor);
 	PortalRef2->FinishSpawning(Transform);
 
 	bCanGeneratePortal2 = false;
 	bIsGeneratingPortal2 = false;
 
-	if(PortalRef1 && PortalRef2) { APortalV2::Relink(PortalRef1, PortalRef2); }
+	if(PortalRef1 && PortalRef2) {
+		APortalV2::Relink(PortalRef1, PortalRef2, PortalRingColor);
+	}
 }
 
 void UPortalGenerationComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
