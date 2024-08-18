@@ -18,7 +18,7 @@ void ATEPlayerController::DragItemPressed() {
 	if(!GetCharacter()) { return; }
 
 	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->DragItemPressed();
+		
 	}
 	
 }
@@ -27,7 +27,7 @@ void ATEPlayerController::DragItemReleased() {
 	if(!GetCharacter()) { return; }
 
 	if(AMainCharacterBase* CharacterBase = Cast<AMainCharacterBase>(GetCharacter())) {
-		CharacterBase->DragItemReleased();
+		
 	}
 }
 
@@ -155,8 +155,8 @@ void ATEPlayerController::UpdateCountDown_Implementation(int32 RoundTime) {
 	OnRoundCountDownChanged.Broadcast(RoundTime);
 }
 
-void ATEPlayerController::UpdateCountDownTitle_Implementation(const FString& String, int32 StageTime) {
-	OnRoundTitleChanged.Broadcast(String, StageTime);
+void ATEPlayerController::UpdateCountDownTitle_Implementation(const FString& String, int32 StageTime, bool bShouldPlaySound) {
+	OnRoundTitleChanged.Broadcast(String, StageTime, bShouldPlaySound);
 }
 
 void ATEPlayerController::EndRound_Implementation(bool bIsHumanWin) {
@@ -194,7 +194,7 @@ void ATEPlayerController::EnterPrepareStage_Implementation(int32 StageTime, cons
 	RoundStage = Preparing;
 	
 	// 1. 设置倒计时标题
-	OnRoundTitleChanged.Broadcast(StageTitle, StageTime);
+	OnRoundTitleChanged.Broadcast(StageTitle, StageTime, false);
 	
 	// 2. 隐藏事件倒计时
 	OnStageChanged.Broadcast(RoundStage);
@@ -204,7 +204,7 @@ void ATEPlayerController::StartRound_Implementation(int32 StageTime, const FStri
 	RoundStage = InRound;
 	
 	// 1. 设置阶段倒计时
-	OnRoundTitleChanged.Broadcast(StageTitle, StageTime);
+	OnRoundTitleChanged.Broadcast(StageTitle, StageTime, true);
 
 	// 2. 设置事件倒计时并接触事件倒计时隐藏
 	OnEventTitleChanged.Broadcast(EventTitle, EventTime);

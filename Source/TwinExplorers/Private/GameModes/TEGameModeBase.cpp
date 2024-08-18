@@ -7,6 +7,7 @@
 #include "Characters/MainCharacterBase.h"
 #include "Controllers/TEPlayerController.h"
 #include "GameFramework/PlayerStart.h"
+#include "GameStates/MainLevelGameState.h"
 #include "Items/ItemActorBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Objects/PortalV2.h"
@@ -21,6 +22,11 @@ ATEGameModeBase::ATEGameModeBase() {
 
 void ATEGameModeBase::BeginPlay() {
 	Super::BeginPlay();
+
+	// 加载配置
+	if(LoadConfiguration()) {
+		UE_LOG(LogTemp, Warning, TEXT("Load configuration successfully!"));
+	}
 
 	// 获取所有的能生成道具的位置
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), SpawnItemClass, SpawnItemLocations);
@@ -37,11 +43,18 @@ void ATEGameModeBase::HandleStartingNewPlayer_Implementation(APlayerController* 
 	ATEPlayerController* PlayerController = Cast<ATEPlayerController>(NewPlayer);
 	if(PlayerController) {
 		PlayerController->FocusOnGame();
+		AMainLevelGameState* MainLevelGameState = GetGameState<AMainLevelGameState>();
+		if(!MainLevelGameState) {
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Get game state failed in game mode in function HandleStartingNewPlayer() on server");
+		}
+		MainLevelGameState->NewPlayerJoin();
 		ConnectedControllers.Add(PlayerController);
+		UE_LOG(LogTemp, Warning, TEXT("New player joined!"));
 	}
 
 	// 当加入到足够多的人数之后，开始进入准备阶段，此时玩家仍然可以加入
 	if (ConnectedControllers.Num() >= RoundPlayerCount) {
+		UE_LOG(LogTemp, Warning, TEXT("Go into prepare stage"));
 		IntoPrepareStage();
 	}
 }
@@ -50,7 +63,11 @@ void ATEGameModeBase::Logout(AController* Exiting) {
 	Super::Logout(Exiting);
 
 	// 当有玩家登出的时候移除服务器上的Controller
-	ConnectedControllers.Remove(Cast<ATEPlayerController>(Exiting));
+	ATEPlayerController* ExitingController = Cast<ATEPlayerController>(Exiting);
+	if(!ExitingController) {
+		UE_LOG(LogTemp, Error, TEXT("An empty controller exited!"));
+	}
+	ConnectedControllers.Remove(ExitingController);
 }
 
 AActor* ATEGameModeBase::ChoosePlayerStart_Implementation(AController* Player) {
@@ -206,6 +223,13 @@ void ATEGameModeBase::SetPlayerRoles() {
 		// 随机选择一个玩家作为鬼
 		int32 RandomIndex = FMath::RandRange(0, ConnectedControllers.Num() - 1);
 
+		// 更新GameState中的人数
+		AMainLevelGameState* MainLevelGameState = GetGameState<AMainLevelGameState>();
+		if(!MainLevelGameState) {
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Get game state failed in game mode in function SetPlayerRoles() on server");
+		}
+		MainLevelGameState->RefreshPlayerInfos();
+
 		for (int32 i = 0; i < ConnectedControllers.Num(); ++i) {
 			ATEPlayerController* PlayerController = ConnectedControllers[i];
 			if (PlayerController) {
@@ -213,8 +237,10 @@ void ATEGameModeBase::SetPlayerRoles() {
 				if (Character) {
 					if (i == RandomIndex) {
 						AssignCharacterTeam(Character, 0);  // 将随机选中的玩家设为鬼
+						MainLevelGameState->AddNewEnemy();
 					} else {
 						AssignCharacterTeam(Character, 1);  // 其他玩家设为人
+						MainLevelGameState->AddNewHuman();
 					}
 				}
 			}
@@ -225,7 +251,7 @@ void ATEGameModeBase::SetPlayerRoles() {
 void ATEGameModeBase::AssignCharacterTeam(AMainCharacterBase* Character, int32 Index) {
 	if (Character) {
 		if (Index == 0) {
-			Character->SetCharacterTeam(ECharacterTeam::Enemy); // 第一个玩家是鬼
+			Character->SetCharacterTeam(ECharacterTeam::Enemy); // Index为0的是鬼
 		} else {
 			Character->SetCharacterTeam(ECharacterTeam::Human); // 其他玩家是人
 		}
@@ -288,7 +314,8 @@ void ATEGameModeBase::ResetGame() {
 	ConnectedControllers.Empty();
 
 	// TODO: 重置其他必要的游戏逻辑或变量
-	
+	AMainLevelGameState* MainLevelGameState = GetGameState<AMainLevelGameState>();
+	MainLevelGameState->RefreshPlayerInfos();
 }
 
 bool ATEGameModeBase::AreAllPlayersInfected() const {
@@ -312,4 +339,31 @@ void ATEGameModeBase::CheckGameOver() {
 		// 如果所有玩家都已被感染，结束游戏
 		EndRound();
 	}
+}
+
+bool ATEGameModeBase::LoadConfiguration() {
+	FString JsonString; // 存储从文件读取的JSON字符串
+	FString FilePath = FPaths::LaunchDir() + TEXT("/Config/GameModeConfig.json"); // 配置文件路径
+
+	// 读取JSON文件
+	if (!FFileHelper::LoadFileToString(JsonString, *FilePath)) {
+		UE_LOG(LogTemp, Error, TEXT("Failed to load configuration file"));
+		return false;
+	}
+
+	// 解析JSON字符串
+	TSharedPtr<FJsonObject> JsonObject;
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonString);
+	if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid()) {
+		// 处理JsonObject
+		MaxPlayerCount = JsonObject->GetIntegerField("MaxPlayerCount");
+		RoundPlayerCount = JsonObject->GetIntegerField("RoundPlayerCount");
+		StartWaitTime = JsonObject->GetIntegerField("StartWaitTime");
+		RoundTime = JsonObject->GetIntegerField("RoundTime");
+		ItemSpawnInterval = JsonObject->GetIntegerField("ItemSpawnInterval");
+		return true;
+	}
+
+	UE_LOG(LogTemp, Error, TEXT("Failed to parse the configuration file"));
+	return false;
 }

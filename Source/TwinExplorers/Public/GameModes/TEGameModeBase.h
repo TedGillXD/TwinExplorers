@@ -102,4 +102,7 @@ private:
 public:
 	UFUNCTION(BlueprintCallable, Category="GameMode")
 	void CheckGameOver();
+
+private:
+	bool LoadConfiguration();
 };

@@ -6,6 +6,9 @@
 #include "GameFramework/GameStateBase.h"
 #include "MainLevelGameState.generated.h"
 
+class AMainCharacterBase;
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPlayerStateChanged, int32, HumanCount, int32, EnemyCount);
+
 /**
  * 
  */
@@ -20,7 +23,34 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="GameState Props", Replicated)
 	TArray<FLinearColor> AvailableColors;			// 未使用过的颜色
 
+	UPROPERTY(BlueprintReadWrite)
+	TMap<AMainCharacterBase*, FString> NameMapping;			// 用来记录所有加入服务器的玩家的名字
+
+	UPROPERTY(ReplicatedUsing=OnRep_CountChanged)
+	int32 NumHumans;
+	
+	UPROPERTY(ReplicatedUsing=OnRep_CountChanged)
+	int32 NumGhosts;
+
+	UPROPERTY(BlueprintReadOnly, BlueprintAssignable)
+	FOnPlayerStateChanged OnPlayerStateChanged;				// 当鬼或者人的数量发生变化的时候调用
+
 public:
 	UFUNCTION(BlueprintCallable)
 	FLinearColor GetAvailableColor();
+
+	UFUNCTION(BlueprintCallable)
+	void NewPlayerJoin();
+
+	UFUNCTION()
+	void OnRep_CountChanged();
+
+	UFUNCTION()
+	void CharacterGetInfect();
+	
+	void RefreshPlayerInfos();
+	void AddNewEnemy();
+	void AddNewHuman();
+	void ReduceEnemy();
+	void ReduceHuman();
 };

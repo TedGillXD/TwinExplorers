@@ -6,6 +6,7 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "NetworkFunctionLibrary.generated.h"
 
+class AMainCharacterBase;
 /**
  * 
  */
@@ -17,4 +18,7 @@ class TWINEXPLORERS_API UNetworkFunctionLibrary : public UBlueprintFunctionLibra
 public:
 	UFUNCTION(BlueprintCallable)
 	static bool GetIPAndPortFromString(const FString& Input, FString& OutIP, FString& OutPort);
+
+	UFUNCTION(BlueprintCallable)
+	static void GetKeysAndValuesArrayFromMap(const TMap<AMainCharacterBase*, FString>& InMap, TArray<AMainCharacterBase*>& OutControllers, TArray<FString>& OutNames);
 };

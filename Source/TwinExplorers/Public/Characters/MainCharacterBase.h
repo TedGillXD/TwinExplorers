@@ -9,6 +9,7 @@
 #include "Items/Item.h"
 #include "MainCharacterBase.generated.h"
 
+class UWidgetComponent;
 class AThrowableObject;
 class UNiagaraComponent;
 class UInputMappingContext;
@@ -53,9 +54,6 @@ protected:
 	UInventoryComponent* InventoryComponent;		// 提供存储拾取物品的功能
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
-	UGrabComponent* GrabComponent;			// 用来提供抓取物品的功能
-
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UPortalGenerationComponent* PortalGenerationComponent;		// 提供发射传送门的能力
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
@@ -75,6 +73,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
 	UNiagaraComponent* DizzyParticleComponent;		// 眩晕效果的Particle
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Components)
+	UWidgetComponent* CharacterNameWidget;		// 角色名字控件
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Skill Props")
 	TArray<UMaterialInterface*> NormalStateCharacterMaterials;			// 正常状态下的角色材质
@@ -127,7 +128,6 @@ public:
 	UCameraComponent* GetCameraComponent() const;
 	UInteractComponent* GetInteractComponent() const;
 	UInventoryComponent* GetInventoryComponent() const;
-	UGrabComponent* GetGrabComponent() const;
 	UIceGenerationComponent* GetIceGenerationComponent() const;
 
 	void SetCharacterTeam(ECharacterTeam NewTeam);
@@ -138,15 +138,7 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void GetInfect();
-
-	virtual void AddControllerPitchInput(float Val) override;
 	
-	UFUNCTION(BlueprintCallable)
-	void DragItemPressed();
-
-	UFUNCTION(BlueprintCallable)
-	void DragItemReleased();
-
 	UFUNCTION(BlueprintCallable)
 	void UseSkillPressed();
 
@@ -216,6 +208,8 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 	void RecoverFromHit();
 
+	virtual void UnPossessed() override;
+
 protected:
 	UFUNCTION()
 	void OnRep_CameraPitch() const;
@@ -225,10 +219,6 @@ protected:
 
 	UFUNCTION()
 	void OnRep_CharacterState() const;
-
-	// 负责将客户端角色的CameraPitch更新到服务器
-	UFUNCTION(Server, Unreliable)
-	void UpdateCameraPitchOnServer(float NewCameraPitch);
 
 	UFUNCTION(Server, Reliable)
 	void InHandItemChangedOnServer(const FItem& Item);
@@ -243,5 +233,10 @@ protected:
 	
 	UFUNCTION(Client, Reliable)
 	void SetControlRotationOnClient(const FVector& TargetLocation, const FRotator& TargetRotation);
-	
+
+	UFUNCTION(Client, Reliable, BlueprintCallable)
+	void SetAllPlayersName(const TArray<AMainCharacterBase*>& Characters, const TArray<FString>& Names);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void SetCharacterName(const FString& Name);
 };

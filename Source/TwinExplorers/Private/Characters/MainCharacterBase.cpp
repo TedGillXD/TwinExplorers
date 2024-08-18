@@ -18,7 +18,10 @@
 #include "GameModes/TEGameModeBase.h"
 #include "NiagaraComponent.h"
 #include "Components/ArrowComponent.h"
+#include "Components/WidgetComponent.h"
+#include "GameStates/MainLevelGameState.h"
 #include "Items/Skill.h"
+#include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "Objects/ThrowableObject.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
@@ -48,9 +51,6 @@ AMainCharacterBase::AMainCharacterBase()
 	InventoryComponent = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComp"));
 	InventoryComponent->SetIsReplicated(true);
 
-	GrabComponent = CreateDefaultSubobject<UGrabComponent>(TEXT("GrabComp"));
-	GrabComponent->SetIsReplicated(true);
-
 	InHandItemActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("InHandItemActor"));
 	InHandItemActor->SetIsReplicated(true);
 	InHandItemActor->SetupAttachment(GetMesh(), FName("hand"));
@@ -69,6 +69,9 @@ AMainCharacterBase::AMainCharacterBase()
 
 	DizzyParticleComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("DizzyNiagara"));
 	DizzyParticleComponent->SetupAttachment(GetRootComponent());
+
+	CharacterNameWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("CharacterNameWidget"));
+	CharacterNameWidget->SetupAttachment(GetRootComponent());
 
 	ThrowDirection = CreateDefaultSubobject<UArrowComponent>(TEXT("ThrowDirection"));
 	ThrowDirection->SetupAttachment(GetMesh(), FName("hand"));
@@ -103,10 +106,6 @@ UInventoryComponent* AMainCharacterBase::GetInventoryComponent() const {
 	return InventoryComponent;
 }
 
-UGrabComponent* AMainCharacterBase::GetGrabComponent() const {
-	return GrabComponent;
-}
-
 UIceGenerationComponent* AMainCharacterBase::GetIceGenerationComponent() const {
 	return IceGenerationComponent;
 }
@@ -134,28 +133,21 @@ void AMainCharacterBase::GetInfect() {
 		SetCharacterTeam(ECharacterTeam::Enemy);
 		AMainCharacterBase* Character = Cast<AMainCharacterBase>(GetWorld()->GetFirstPlayerController()->GetCharacter());
 		ATEGameModeBase* GameMode = Cast<ATEGameModeBase>(GetWorld()->GetAuthGameMode());
-		if (GameMode) {
-			GameMode->CheckGameOver();
+		if (!GameMode) {
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Cannot get auth game mode in function GetInfect()");
+			return;
 		}
+		
+		AMainLevelGameState* GameState = GameMode->GetGameState<AMainLevelGameState>();
+		if(!GameState) {
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Cannot get auth game state in function GetInfect()");
+			return;
+		}
+
+		GameState->CharacterGetInfect();
 	} else {
 		GetInfectOnServer();
 	}
-}
-
-void AMainCharacterBase::AddControllerPitchInput(float Val) {
-	Super::AddControllerPitchInput(Val);
-
-	// 更新Pitch，如果现在是服务器，则这个更新会通过OnRep函数复制到客户端
-	CameraPitch = FirstPersonCamera->GetComponentRotation().Pitch;
-	UpdateCameraPitchOnServer(CameraPitch);		// 否则，通过RPC更新角色在服务器中的Pitch
-}
-
-void AMainCharacterBase::DragItemPressed() {
-	GrabComponent->GrabItem();
-}
-
-void AMainCharacterBase::DragItemReleased() {
-	GrabComponent->DropItem();
 }
 
 void AMainCharacterBase::UseSkillPressed() {
@@ -364,6 +356,22 @@ void AMainCharacterBase::SetWalkSpeedMulticast_Implementation(float NewWalkSpeed
 	GetCharacterMovement()->MaxWalkSpeed = NewWalkSpeed;
 }
 
+void AMainCharacterBase::UnPossessed() {
+	Super::UnPossessed();
+
+	// 清除和角色有关的数据
+	if(HasAuthority()) {
+		AMainLevelGameState* MainLevelGameState = Cast<AMainLevelGameState>(UGameplayStatics::GetGameState(GetWorld()));
+		if(MainLevelGameState) {
+			if(CharacterTeam == ECharacterTeam::Enemy) {
+				MainLevelGameState->ReduceEnemy();
+			} else {
+				MainLevelGameState->ReduceHuman();				
+			}
+		}
+	}
+}
+
 void AMainCharacterBase::OnRep_CameraPitch() const {
 	const FRotator Rotator = FirstPersonCamera->GetComponentRotation();
 	const FRotator NewRotator{CameraPitch, Rotator.Yaw, Rotator.Roll};
@@ -426,6 +434,20 @@ FVector AMainCharacterBase::GetOriginalVelocity_Implementation() {
 	return GetVelocity();
 }
 
+void AMainCharacterBase::SetAllPlayersName_Implementation(const TArray<AMainCharacterBase*>& Characters,
+	const TArray<FString>& Names) {
+	if(Characters.Num() != Names.Num()) {
+		UE_LOG(LogTemp, Error, TEXT("The size of Controllers and Names array are not the same!"));
+		return;
+	}
+	
+	// 从所有Controller里面获取到角色然后设置名字
+	for(int32 Index = 0; Index < Characters.Num(); Index++) {
+		if(!Characters[Index]) { continue; }
+		Characters[Index]->SetCharacterName(Names[Index]);
+	}
+}
+
 void AMainCharacterBase::SetControlRotationOnClient_Implementation(const FVector& TargetLocation, const FRotator& TargetRotation) {
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, "Client Set Transport");
 	if(GetController()) {		// 在客户端中设置这个ControlRotation才能生效，但是需要在服务器上做一次来保证得到正确的速度方向
@@ -437,14 +459,6 @@ void AMainCharacterBase::SetControlRotationOnClient_Implementation(const FVector
 
 void AMainCharacterBase::InHandItemChangedOnServer_Implementation(const FItem& Item) {
 	InHandItemChanged(Item);
-}
-
-void AMainCharacterBase::UpdateCameraPitchOnServer_Implementation(float NewCameraPitch) {
-	CameraPitch = NewCameraPitch;
-	// 因为OnRep_CameraPitch只会在Client被调用，所以要在这个RPC中进行设置
-	const FRotator Rotator = FirstPersonCamera->GetComponentRotation();
-	const FRotator NewRotator{CameraPitch, Rotator.Yaw, Rotator.Roll};
-	FirstPersonCamera->SetWorldRotation(NewRotator);
 }
 
 void AMainCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {

@@ -21,7 +21,7 @@ enum ERoundStage {
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRoundCountDownChanged, int32, LeftTimeInSecond);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnRoundTitleChanged, FString, NewTitle, int32, StageTimeInSecond);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnRoundTitleChanged, FString, NewTitle, int32, StageTimeInSecond, bool, bShouldPlaySound);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEventCountDownChanged, int32, NextEventTimeLeft);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEventTitleChanged, FString, NewTitle, int32, StageTimeInSecond);
@@ -122,7 +122,7 @@ public:
 	void UpdateCountDown(int32 RoundTime);
 
 	UFUNCTION(Client, Reliable)
-	void UpdateCountDownTitle(const FString& String, int32 StageTime);
+	void UpdateCountDownTitle(const FString& String, int32 StageTime, bool bShouldPlaySound);
 
 	UFUNCTION(BlueprintCallable, Client, Reliable)
 	void PlaySoundOnClient(USoundBase* SoundBase);
