@@ -39,6 +39,12 @@ protected:
 	int32 PortalRelinkInterval;			// 传送门重新链接倒计时
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="GameRules")
+	int32 SpawnItemCountRangeMin;		// 单次最小生成的道具数量
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="GameRules")
+	int32 SpawnItemCountRangeMax;		// 单词最多生成的道具数量
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="GameRules")
 	TArray<TSubclassOf<AItemActorBase>> ItemClasses;		// 可以用来生成道具的Item Class
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="GameRules")

@@ -45,6 +45,8 @@ APortalV2::APortalV2()
 	bIsInit = false;
 	bIsEnabled = true;
 	bCanBeOptimized = false;
+
+	MaxRecursions = 3;
 }
 
 // Called when the game starts or when spawned
@@ -252,6 +254,14 @@ void APortalV2::UpdateSceneCapture(const FTransform& CameraTransform) const {
 	FRotator FinalRotation = UKismetMathLibrary::MakeRotationFromAxes(GetTargetRotationAxe(X), GetTargetRotationAxe(Y), GetTargetRotationAxe(Z));
 	
 	LinkedPortal->PortalCamera->SetWorldLocationAndRotation(FinalLocation, FinalRotation);
+}
+
+void APortalV2::UpdateSceneCaptureRecursive(const FVector& Location, const FRotator& Rotation) {
+	// if(CurrentRecursion == 0) {
+	// 	LocalCharacter->GetCameraComponent()->GetComponentLocation();
+	// } else {
+	// 	
+	// }
 }
 
 FVector APortalV2::GetTargetRotationAxe(const FVector& Axe) const {

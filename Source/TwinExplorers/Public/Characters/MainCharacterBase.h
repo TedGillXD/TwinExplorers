@@ -115,7 +115,18 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	bool bIsInAir;
-	
+
+	UPROPERTY(EditDefaultsOnly, Category="Camera Props")
+	float DefaultDetectionDistance;
+
+	UPROPERTY(EditDefaultsOnly, Category="Camera Props")
+	float ProbeRadius;
+
+	UPROPERTY(EditDefaultsOnly, Category="Camera Props")
+	float InterpSpeed;
+
+	FVector ImpactPoint;			// 摄像机碰撞检测到的点
+
 public:
 	bool bIsTeleporting;		// 是否正在传送
 	
@@ -248,4 +259,8 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void SetCharacterName(const FString& Name);
+
+private:
+	void CameraCollision();		// 执行从人物到摄像机方向的碰撞检测
+	float GetInterpSpeed() const;
 };

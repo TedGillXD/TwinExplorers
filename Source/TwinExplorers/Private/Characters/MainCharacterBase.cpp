@@ -22,6 +22,7 @@
 #include "GameStates/MainLevelGameState.h"
 #include "Items/Skill.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "Objects/ThrowableObject.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
@@ -81,19 +82,29 @@ AMainCharacterBase::AMainCharacterBase()
 	InventoryComponent->OnSkillDestroy.AddDynamic(this, &AMainCharacterBase::DeactivateSkill);
 
 	bIsInAir = false;
+
+	DefaultDetectionDistance = 300.f;
+	ProbeRadius = 20.f;
+	InterpSpeed = 5.f;
 }
 
 // Called when the game starts or when spawned
 void AMainCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	if(!HasAuthority()) {
+		DefaultDetectionDistance = SpringArm->TargetArmLength;
+	}
 }
 
 // Called every frame
 void AMainCharacterBase::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
-	
+
+	if(!HasAuthority()) {
+		CameraCollision();
+	}
 }
 
 UCameraComponent* AMainCharacterBase::GetCameraComponent() const {
@@ -452,8 +463,34 @@ FVector AMainCharacterBase::GetOriginalVelocity_Implementation() {
 	return GetVelocity();
 }
 
+void AMainCharacterBase::CameraCollision() {
+	FHitResult HitResult;
+	FVector Start = SpringArm->GetComponentLocation();
+	FVector Dir = FirstPersonCamera->GetComponentLocation() - SpringArm->GetComponentLocation();
+	Dir.Normalize();
+	FVector End = Start + Dir * DefaultDetectionDistance;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+	bool bIsHit = GetWorld()->SweepSingleByChannel(HitResult, Start, End, Dir.ToOrientationQuat(), ECC_Camera, FCollisionShape::MakeSphere(ProbeRadius), Params);
+
+	if(bIsHit) {
+		ImpactPoint = HitResult.ImpactPoint;
+		float Distance = FVector::Distance(SpringArm->GetComponentLocation(), HitResult.ImpactPoint) - ProbeRadius;
+		SpringArm->TargetArmLength = FMath::FInterpTo(SpringArm->TargetArmLength, Distance, GetWorld()->GetDeltaSeconds(), GetInterpSpeed());
+	} else {
+		if(!FMath::IsNearlyEqual(SpringArm->TargetArmLength, DefaultDetectionDistance, 1.f)) {
+			SpringArm->TargetArmLength = FMath::FInterpTo(SpringArm->TargetArmLength, DefaultDetectionDistance, GetWorld()->GetDeltaSeconds(), GetInterpSpeed());
+		}
+	}
+}
+
+float AMainCharacterBase::GetInterpSpeed() const {
+	float Distance = FVector::Distance(FirstPersonCamera->GetComponentLocation(), ImpactPoint);
+	return UKismetMathLibrary::MapRangeClamped(Distance, 50.f, DefaultDetectionDistance, InterpSpeed, InterpSpeed * 10.f);
+}
+
 void AMainCharacterBase::SetAllPlayersName_Implementation(const TArray<AMainCharacterBase*>& Characters,
-	const TArray<FString>& Names) {
+                                                          const TArray<FString>& Names) {
 	if(Characters.Num() != Names.Num()) {
 		UE_LOG(LogTemp, Error, TEXT("The size of Controllers and Names array are not the same!"));
 		return;

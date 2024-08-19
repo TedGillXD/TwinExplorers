@@ -18,6 +18,9 @@ ATEGameModeBase::ATEGameModeBase() {
 	RoundTime = 120.f;	// 2分钟，先用20秒做测试
 	PortalRelinkInterval = 20.f;
 	ItemSpawnInterval = 30.0f;	// 每分钟生成道具，先用10秒做测试
+
+	SpawnItemCountRangeMin = 3;
+	SpawnItemCountRangeMax = 5;
 }
 
 void ATEGameModeBase::BeginPlay() {
@@ -123,7 +126,7 @@ void ATEGameModeBase::SpawnItem() {
 	}
 	
 	// 随机选择一个数量n，n的范围为1到3的数量
-	int32 NumToSpawn = FMath::RandRange(1, FMath::Min(3, AvailableLocations.Num()));
+	int32 NumToSpawn = FMath::RandRange(FMath::Min(SpawnItemCountRangeMin, AvailableLocations.Num()), FMath::Min(SpawnItemCountRangeMax, AvailableLocations.Num()));
 
 	// 从AvailableLocations中随机选择n个位置
 	TArray<AActor*> SelectedLocations;
@@ -361,6 +364,8 @@ bool ATEGameModeBase::LoadConfiguration() {
 		StartWaitTime = JsonObject->GetIntegerField("StartWaitTime");
 		RoundTime = JsonObject->GetIntegerField("RoundTime");
 		ItemSpawnInterval = JsonObject->GetIntegerField("ItemSpawnInterval");
+		SpawnItemCountRangeMin = JsonObject->GetIntegerField("SpawnItemCountRangeMin") == 0 ? 3 : JsonObject->GetIntegerField("SpawnItemCountRangeMin");
+		SpawnItemCountRangeMax = JsonObject->GetIntegerField("SpawnItemCountRangeMax") == 0 ? 5 : JsonObject->GetIntegerField("SpawnItemCountRangeMax");
 		return true;
 	}
 

@@ -64,6 +64,11 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Portal Props", EditAnywhere, ReplicatedUsing=OnRep_LinkedPortal)
 	APortalV2* LinkedPortal;
 
+	UPROPERTY(BlueprintReadOnly, Category="Portal Props")
+	int32 MaxRecursions;			// 最大递归渲染
+
+	int32 CurrentRecursion;			// 当前的渲染递归次数
+
 	UPROPERTY(ReplicatedUsing=OnRep_RingColor)
 	FLinearColor RingColor;
 
@@ -120,6 +125,7 @@ private:
 	void Init();
 	void SetClipPlane() const;	// 设置裁切平面
 	void UpdateSceneCapture(const FTransform& CameraTransform) const;
+	void UpdateSceneCaptureRecursive(const FVector& Location, const FRotator& Rotation);
 	FVector GetTargetRotationAxe(const FVector& Axe) const;
 	void DoViewportResize() const;		// 处理视口大小变化
 
