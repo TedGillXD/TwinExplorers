@@ -83,6 +83,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Skill Props")
 	TArray<UMaterialInterface*> InvisibleStateMaterials;				// 隐身状态下的角色材质
 
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Skill Props")
+	UMaterialInterface* InvisibleEnemyShirt;			// 隐身状态下的敌人的衣服
+
 	UPROPERTY(BlueprintReadOnly, Category="Character State", ReplicatedUsing=OnRep_CharacterState)
 	TEnumAsByte<ECharacterState> CharacterState;
 	
@@ -109,6 +112,9 @@ protected:
 	UMaterialInterface* HumanShirtMaterial;
 
 	bool bShouldPlayParticle;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	bool bIsInAir;
 	
 public:
 	bool bIsTeleporting;		// 是否正在传送
@@ -209,6 +215,9 @@ public:
 	void RecoverFromHit();
 
 	virtual void UnPossessed() override;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void PlayNiagaraOnAllClient(ECharacterState State, float LastTime);
 
 protected:
 	UFUNCTION()

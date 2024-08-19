@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "SwingHammer.generated.h"
 
+class UArrowComponent;
 class UBoxComponent;
 class UPhysicsConstraintComponent;
 
@@ -30,12 +31,28 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
 	UBoxComponent* RightBox;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	UArrowComponent* Arrow1;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	UArrowComponent* Arrow2;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Hammer Settings")
 	float SwingSpeed; // 摆动的速度
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Hammer Settings")
+	float SwingAmplitude;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Hammer Settings")
+	float LaunchForce;			// 撞击力度
+	
+	float CurrentSwingTime;
 	
 public:	
 	// Sets default values for this actor's properties
 	ASwingHammer();
+
+	virtual void Tick(float DeltaSeconds) override;
 
 protected:
 	// Called when the game starts or when spawned
@@ -48,5 +65,8 @@ private:
 	void ToggleSwingDirection();
 
 	UFUNCTION()
-	void Hit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	void Hit1(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void Hit2(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 };

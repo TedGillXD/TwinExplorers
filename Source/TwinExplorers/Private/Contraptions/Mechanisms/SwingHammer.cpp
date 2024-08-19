@@ -4,6 +4,7 @@
 #include "Contraptions/Mechanisms/SwingHammer.h"
 
 #include "Characters/MainCharacterBase.h"
+#include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
@@ -30,12 +31,19 @@ ASwingHammer::ASwingHammer()
 	RightBox = CreateDefaultSubobject<UBoxComponent>(TEXT("RightBox"));
 	RightBox->SetupAttachment(HammerMesh);
 
+	Arrow1 = CreateDefaultSubobject<UArrowComponent>(TEXT("Arrow1"));
+	Arrow1->SetupAttachment(HammerMesh);
+	Arrow2 = CreateDefaultSubobject<UArrowComponent>(TEXT("Arrow2"));
+	Arrow2->SetupAttachment(HammerMesh);
+
 	// 初始化物理约束组件
 	PhysicsConstraint = CreateDefaultSubobject<UPhysicsConstraintComponent>(TEXT("PhysicsConstraint"));
 	PhysicsConstraint->SetupAttachment(Root);
 
 	// 设置摆动速度
-	SwingSpeed = 2.0f; // 每次摆动的时间（秒）
+	SwingSpeed = 2.0f;
+	SwingAmplitude = 45.0f; // 摆动幅度为45度
+	CurrentSwingTime = 0.0f;
 
 	// 设置物理约束
 	PhysicsConstraint->SetConstrainedComponents(HammerMesh, NAME_None, nullptr, NAME_None);
@@ -47,21 +55,36 @@ ASwingHammer::ASwingHammer()
 	PhysicsConstraint->SetAngularDriveParams(50.f, 100.f, 0.f);
 
 	bMovingToEnd = true;
+
+	LaunchForce = 200.f;
 }
 
-void ASwingHammer::Hit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
-	
-	if (HasAuthority() && OtherActor && OtherActor->IsA<AMainCharacterBase>()) {
-		AMainCharacterBase* Character = Cast<AMainCharacterBase>(OtherActor);
-		Character->GetHit();
+void ASwingHammer::Tick(float DeltaSeconds) {
+	Super::Tick(DeltaSeconds);
 
-		FTimerHandle TimerHandle_Recovery;
-		GetWorldTimerManager().SetTimer(TimerHandle_Recovery, FTimerDelegate::CreateLambda([Character]() -> void {
-			Character->RecoverFromHit();
-		}), 1.f, false);
+	if(HasAuthority()) {
+		CurrentSwingTime += DeltaSeconds;
+		float Angle = SwingAmplitude * FMath::Sin(CurrentSwingTime * SwingSpeed);
+		FRotator NewRotation = FRotator(0, 0, Angle);
+		HammerMesh->SetRelativeRotation(NewRotation);
 	}
 }
+
+// void ASwingHammer::Hit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+//                        int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+// 	
+// 	if (HasAuthority() && OtherActor && OtherActor->IsA<AMainCharacterBase>()) {
+// 		AMainCharacterBase* Character = Cast<AMainCharacterBase>(OtherActor);
+// 		Character->GetCapsuleComponent()->SetIsReplicated(true);
+// 		Character->GetHit();
+//
+// 		FTimerHandle TimerHandle_Recovery;
+// 		GetWorldTimerManager().SetTimer(TimerHandle_Recovery, FTimerDelegate::CreateLambda([Character]() -> void {
+// 			Character->GetCapsuleComponent()->SetIsReplicated(false);
+// 			Character->RecoverFromHit();
+// 		}), 1.f, false);
+// 	}
+// }
 
 // Called when the game starts or when spawned
 void ASwingHammer::BeginPlay()
@@ -75,9 +98,9 @@ void ASwingHammer::BeginPlay()
 	
 	// 初始方向
 	if(HasAuthority()) {
-		ToggleSwingDirection();
-		LeftBox->OnComponentBeginOverlap.AddDynamic(this, &ASwingHammer::Hit);
-		RightBox->OnComponentBeginOverlap.AddDynamic(this, &ASwingHammer::Hit);
+		// ToggleSwingDirection();
+		LeftBox->OnComponentBeginOverlap.AddDynamic(this, &ASwingHammer::Hit1);
+		RightBox->OnComponentBeginOverlap.AddDynamic(this, &ASwingHammer::Hit2);
 	}
 
 }
@@ -95,4 +118,24 @@ void ASwingHammer::ToggleSwingDirection() {
 
 	// 在指定的时间后切换方向
 	GetWorldTimerManager().SetTimer(TimerHandle, this, &ASwingHammer::ToggleSwingDirection, SwingSpeed, false);
+}
+
+void ASwingHammer::Hit1(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+	if (HasAuthority() && OtherActor && OtherActor->IsA<AMainCharacterBase>()) {
+		AMainCharacterBase* Character = Cast<AMainCharacterBase>(OtherActor);
+		FVector Dir = Arrow1->GetForwardVector();
+		Dir.Z = FMath::Max(Dir.Z, 0.5f);
+		Character->LaunchCharacter(Dir * LaunchForce, false, false);
+	}
+}
+
+void ASwingHammer::Hit2(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+	if (HasAuthority() && OtherActor && OtherActor->IsA<AMainCharacterBase>()) {
+		AMainCharacterBase* Character = Cast<AMainCharacterBase>(OtherActor);
+		FVector Dir = Arrow2->GetForwardVector();
+		Dir.Z = FMath::Max(Dir.Z, 0.5f);
+		Character->LaunchCharacter(Dir * LaunchForce, false, false);
+	}
 }

@@ -79,6 +79,8 @@ AMainCharacterBase::AMainCharacterBase()
     // 绑定更换手中道具的函数
     InventoryComponent->OnSelectedToolChanged.AddDynamic(this, &AMainCharacterBase::InHandItemChanged);
 	InventoryComponent->OnSkillDestroy.AddDynamic(this, &AMainCharacterBase::DeactivateSkill);
+
+	bIsInAir = false;
 }
 
 // Called when the game starts or when spawned
@@ -263,14 +265,23 @@ void AMainCharacterBase::StepOnBananaPeel(float LastTime, AActor* PeelNeedToDest
 
 	// 通知客户端完成按键调转
 	StepOnBananaPeelOnClient(LastTime);
+	PlayNiagaraOnAllClient(Dizzy, LastTime);
 }
 
 void AMainCharacterBase::StepOnBananaPeelOnClient_Implementation(float LastTime) {
 	ATEPlayerController* PlayerController = Cast<ATEPlayerController>(GetController());
 	// 设置输入反转
 	PlayerController->InvertMovement();		// 反转操控
-	FTimerHandle TimerHandle;
-	GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([PlayerController]() -> void {
+
+	this->DizzyParticleComponent->Deactivate();
+	this->DizzyParticleComponent->Activate(true);
+	FTimerHandle TimerHandle1;
+	GetWorldTimerManager().SetTimer(TimerHandle1, FTimerDelegate::CreateLambda([this]() -> void {
+		this->DizzyParticleComponent->Deactivate();
+	}), LastTime, false);
+	
+	FTimerHandle TimerHandle2;
+	GetWorldTimerManager().SetTimer(TimerHandle2, FTimerDelegate::CreateLambda([PlayerController]() -> void {
 		PlayerController->RestoreMovement();		// 恢复操控
 	}), LastTime, false);
 }
@@ -323,13 +334,17 @@ void AMainCharacterBase::SetCharacterVisibilityMulticast_Implementation(bool New
 		for(int32 Index = 0; Index < NumMat; Index++) {
 			GetMesh()->SetMaterial(Index, NormalStateCharacterMaterials[Index]);
 		}
-		// TODO: 判断是否是Enemy，如果是更换0号材质
+		if(CharacterTeam == ECharacterTeam::Enemy) {
+			GetMesh()->SetMaterial(0, EnemyShirtMaterial);
+		}
 	} else {		// 隐身
 		int32 NumMat = InvisibleStateMaterials.Num();
 		for(int32 Index = 0; Index < NumMat; Index++) {
 			GetMesh()->SetMaterial(Index, InvisibleStateMaterials[Index]);
 		}
-		// TODO: 判断是否是Enemy，如果是更换0号材质
+		if(CharacterTeam == ECharacterTeam::Enemy) {
+			GetMesh()->SetMaterial(0, InvisibleEnemyShirt);
+		}
 	}
 }
 
@@ -339,6 +354,7 @@ void AMainCharacterBase::SetCharacterVisibilityOnServer_Implementation(bool NewV
 
 void AMainCharacterBase::GetHit_Implementation() {
 	GetCapsuleComponent()->SetSimulatePhysics(true);
+	bIsInAir = true;
 }
 
 void AMainCharacterBase::MulticastPlayAttackMontage_Implementation() {
@@ -350,6 +366,7 @@ void AMainCharacterBase::MulticastPlayAttackMontage_Implementation() {
 
 void AMainCharacterBase::RecoverFromHit_Implementation() {
 	GetCapsuleComponent()->SetSimulatePhysics(false);
+	bIsInAir = false;
 }
 
 void AMainCharacterBase::SetWalkSpeedMulticast_Implementation(float NewWalkSpeed) {
@@ -372,6 +389,19 @@ void AMainCharacterBase::UnPossessed() {
 	}
 }
 
+void AMainCharacterBase::PlayNiagaraOnAllClient_Implementation(ECharacterState State, float LastTime) {
+	if(State == Dizzy) {
+		this->DizzyParticleComponent->Deactivate();
+		this->DizzyParticleComponent->Activate(true);
+		FTimerHandle TimerHandle;
+		GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([this]() -> void {
+			this->DizzyParticleComponent->Deactivate();
+		}), LastTime, false);
+	} else {
+		
+	}
+}
+
 void AMainCharacterBase::OnRep_CameraPitch() const {
 	const FRotator Rotator = FirstPersonCamera->GetComponentRotation();
 	const FRotator NewRotator{CameraPitch, Rotator.Yaw, Rotator.Roll};
@@ -390,19 +420,7 @@ void AMainCharacterBase::OnRep_CharacterTeam() const {
 }
 
 void AMainCharacterBase::OnRep_CharacterState() const {
-	if(CharacterState == Dizzy) {
-		// 触发相关的Niagara
-		DizzyParticleComponent->Deactivate();
-		DizzyParticleComponent->Activate();
-		return;
-	} else if(CharacterState == Stun) {
-		// TODO: 触发相关的Niagara
-		return;
-	}
-
-	// 关闭相关的Niagara
-	DizzyParticleComponent->Deactivate();
-	return;
+	
 }
 
 void AMainCharacterBase::InHandItemChanged(const FItem& Item) {

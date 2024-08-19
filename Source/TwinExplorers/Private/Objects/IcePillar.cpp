@@ -47,14 +47,12 @@ void AIcePillar::Destroyed() {
 void AIcePillar::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	if(HasAuthority()) {
-		// 这个计算应该只在服务端进行
-		if(!FMath::IsNearlyEqual(Current, Target)) {
-			Current = FMath::FInterpTo(Current, Target, DeltaTime, GetInterpTime(Current, Target, 50));
-			FVector OriginalLocation = PillarMeshComp->GetComponentLocation();
-			PillarMeshComp->SetWorldLocation({ OriginalLocation.X, OriginalLocation.Y, Current });
-		}
+	
+	// 服务端和客户端同时执行减少网络传输
+	if(!FMath::IsNearlyEqual(Current, Target)) {
+		Current = FMath::FInterpTo(Current, Target, DeltaTime, GetInterpTime(Current, Target, 50));
+		FVector OriginalLocation = PillarMeshComp->GetComponentLocation();
+		PillarMeshComp->SetWorldLocation({ OriginalLocation.X, OriginalLocation.Y, Current });
 	}
 }
 

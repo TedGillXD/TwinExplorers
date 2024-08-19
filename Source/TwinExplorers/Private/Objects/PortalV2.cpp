@@ -14,6 +14,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetRenderingLibrary.h"
 #include "Net/UnrealNetwork.h"
+#include "RenderingThread.h"
 
 // Sets default values
 APortalV2::APortalV2()
@@ -408,6 +409,7 @@ void APortalV2::ResizeTextureToMatchViewport(const FVector2D& DesiredSize) const
 	if (DesiredSize.X != CurrentWidth || DesiredSize.Y != CurrentHeight) {
 		LinkedPortal->PortalRT->ResizeTarget(DesiredSize.X, DesiredSize.Y);
 		LinkedPortal->PortalCamera->CaptureSceneDeferred();
+		FlushRenderingCommands();    // 在每一次Resize之后Flush一次，防止多次Resize崩溃
 	}
 }
 

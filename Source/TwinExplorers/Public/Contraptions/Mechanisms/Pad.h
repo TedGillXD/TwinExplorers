@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Pad.generated.h"
 
+class UBoxComponent;
 class UPhysicsConstraintComponent;
 
 UCLASS()
@@ -19,6 +20,9 @@ protected:
 	
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Components")
     UStaticMeshComponent* Mesh;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Components")
+	UBoxComponent* BoxComponent;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Components")
     UPhysicsConstraintComponent* PhysicsConstraint;
@@ -45,7 +49,7 @@ public:
 	APad();
 
 protected:
-
+	
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
@@ -54,5 +58,6 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION()
-	void OnComponentHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	void OnComponentOverlapped(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+							   const FHitResult& SweepResult);
 };
