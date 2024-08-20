@@ -14,12 +14,14 @@
 // Sets default values for this component's properties
 UPortalGenerationComponent::UPortalGenerationComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 
 	DetectionDistance = 2000.f;
 	bIsInitialized = false;
 	bIsGeneratingPortal1 = false;
 	bIsGeneratingPortal2 = false;
+
+	bIsLinked = false;
 }
 
 // Called when the game starts
@@ -83,11 +85,26 @@ bool UPortalGenerationComponent::ShootPortal2() {
 	return false;
 }
 
+void UPortalGenerationComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction) {
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// 防止两个传送门异步产生导致的未连接情况
+	if(GetOwnerRole() == ENetRole::ROLE_Authority) {
+		if(PortalRef1 && PortalRef2 && !bIsLinked) {
+			APortalV2::Relink(PortalRef1, PortalRef2, PortalRingColor);
+			bIsLinked = true;
+			Reset();
+		}
+	}
+}
+
 void UPortalGenerationComponent::ResetOnServer_Implementation() {
 	bCanGeneratePortal1 = true;
 	bCanGeneratePortal2 = true;
 	PortalRef1 = nullptr;
 	PortalRef2 = nullptr;
+	bIsLinked = false;
 	
 	// 获取传送门Ring颜色
 	AMainLevelGameState* GameState = Cast<AMainLevelGameState>(UGameplayStatics::GetGameState(GetWorld()));
@@ -210,10 +227,12 @@ void UPortalGenerationComponent::SpawnPortal1AtLocationAndRotation_Implementatio
 
 	bCanGeneratePortal1 = false;
 	bIsGeneratingPortal1 = false;
-
-	if(PortalRef1 && PortalRef2) {
-		APortalV2::Relink(PortalRef1, PortalRef2, PortalRingColor);
-	}
+	
+	//
+	// if(PortalRef1 && PortalRef2) {
+	// 	APortalV2::Relink(PortalRef1, PortalRef2, PortalRingColor);
+	// 	bIsLinked = true;
+	// }
 }
 
 void UPortalGenerationComponent::SpawnPortal2AtLocationAndRotation_Implementation(const FVector& NewLocation, const FRotator& NewRotation) {
@@ -233,10 +252,11 @@ void UPortalGenerationComponent::SpawnPortal2AtLocationAndRotation_Implementatio
 
 	bCanGeneratePortal2 = false;
 	bIsGeneratingPortal2 = false;
-
-	if(PortalRef1 && PortalRef2) {
-		APortalV2::Relink(PortalRef1, PortalRef2, PortalRingColor);
-	}
+	//
+	// if(PortalRef1 && PortalRef2) {
+	// 	APortalV2::Relink(PortalRef1, PortalRef2, PortalRingColor);
+	// 	bIsLinked = true;
+	// }
 }
 
 void UPortalGenerationComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

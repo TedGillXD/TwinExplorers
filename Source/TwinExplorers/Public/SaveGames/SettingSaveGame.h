@@ -35,4 +35,7 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Network Settings")
 	FString IpAndPort;				// 服务器地址
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Network Settings")
+	bool bEnablePortalRecursive;		// 是否开启递归渲染
 };

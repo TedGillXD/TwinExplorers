@@ -124,6 +124,11 @@ UIceGenerationComponent* AMainCharacterBase::GetIceGenerationComponent() const {
 }
 
 void AMainCharacterBase::SetCharacterTeam(ECharacterTeam NewTeam) {
+	if(NewTeam == ECharacterTeam::Enemy) {
+		GetCharacterMovement()->MaxWalkSpeed = 680.f;
+	} else {
+		GetCharacterMovement()->MaxWalkSpeed = 600.f;
+	}
 	CharacterTeam = NewTeam;
 }
 
@@ -188,13 +193,12 @@ void AMainCharacterBase::AttackOnServer_Implementation() {
 	if(bIsAttacking) { return; }
 	bIsAttacking = true;
 	
-	MulticastPlayAttackMontage();
-	
-	FTimerHandle TimerHandle_Attack;
-	float PlayTime = AttackMontage ? PlayAnimMontage(AttackMontage, AttackPlayRate) : 0.0f; // 计算动画播放时间，同时在服务器上也播放动画，使其能进行通知
-	GetWorldTimerManager().SetTimer(TimerHandle_Attack, FTimerDelegate::CreateLambda([this]() -> void {
+	PlayMontageOnAllClient(AttackMontage, AttackPlayRate);
+	float AttackTime = AttackMontage->GetPlayLength() / AttackPlayRate;
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([this]() -> void {
 		this->bIsAttacking = false;
-	}), PlayTime / AttackPlayRate, false);
+	}), AttackTime, false);
 }
 
 void AMainCharacterBase::Attack() {
@@ -206,16 +210,15 @@ void AMainCharacterBase::Attack() {
 	}
 }
 
-void AMainCharacterBase::AttackDetection() {
+void AMainCharacterBase::AttackDetection_Implementation() {
 	if(HasAuthority()) {
 		TArray<FHitResult> Results;
 		FVector Start = GetActorLocation() + GetActorForwardVector() * GetCapsuleComponent()->GetScaledCapsuleRadius();
 		FVector End = Start + GetActorForwardVector() * 25.f;
-		FCollisionShape Box = FCollisionShape::MakeBox(FVector{ 25.0, 25.0, 25.0 });
+		FCollisionShape Box = FCollisionShape::MakeBox(FVector{ 50.0, 50.0, 50.0 });
 		FCollisionQueryParams Params;
 		Params.AddIgnoredActor(this);
 		bool bIsHit = GetWorld()->SweepMultiByChannel(Results, Start, End, GetActorRotation().Quaternion(), ECC_Pawn, Box, Params);
-		DrawDebugBoxTraceMulti(GetWorld(), Start, End, FVector{ 25.0, 25.0, 25.0 }, GetActorRotation(), EDrawDebugTrace::ForDuration, bIsHit, Results, FLinearColor::Green, FLinearColor::Red, 10.f);
 		if(!bIsHit) { return; }
 		
 		for(FHitResult& Result : Results) {
@@ -423,8 +426,10 @@ void AMainCharacterBase::OnRep_CharacterTeam() const {
 	// 根据角色所属队伍处理角色的外观
 	if(CharacterTeam == ECharacterTeam::Human) {
 		GetMesh()->SetMaterial(0, HumanShirtMaterial);
+		GetCharacterMovement()->MaxWalkSpeed = 600.f;
 	} else {
 		GetMesh()->SetMaterial(0, EnemyShirtMaterial);
+		GetCharacterMovement()->MaxWalkSpeed = 680.f;
 		NiagaraParticleComponent->Deactivate();
 		NiagaraParticleComponent->Activate(true);
 	}

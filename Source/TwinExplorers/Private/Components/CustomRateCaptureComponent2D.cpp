@@ -3,6 +3,9 @@
 
 #include "Components/CustomRateCaptureComponent2D.h"
 
+#include "Camera/CameraComponent.h"
+#include "Characters/MainCharacterBase.h"
+
 UCustomRateCaptureComponent2D::UCustomRateCaptureComponent2D() {
 	// Setup tick to enable manual control
 	PrimaryComponentTick.bCanEverTick = true;

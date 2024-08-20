@@ -48,6 +48,8 @@ protected:
     bool bIsGeneratingPortal1; // 是否正在生成Portal1
     bool bIsGeneratingPortal2; // 是否正在生成Portal2
 
+    bool bIsLinked;
+
     FLinearColor PortalRingColor;
 
 public:
@@ -62,6 +64,8 @@ public:
 
     UFUNCTION(BlueprintCallable)
     bool ShootPortal2();
+
+    virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
     UFUNCTION(Server, Reliable)

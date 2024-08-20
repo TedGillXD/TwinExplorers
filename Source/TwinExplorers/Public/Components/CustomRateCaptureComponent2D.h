@@ -6,6 +6,7 @@
 #include "Components/SceneCaptureComponent2D.h"
 #include "CustomRateCaptureComponent2D.generated.h"
 
+class AMainCharacterBase;
 /**
  * 
  */
@@ -16,13 +17,13 @@ class TWINEXPLORERS_API UCustomRateCaptureComponent2D : public USceneCaptureComp
 protected:
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsEnabled;			// 是否被开启了
-	
+
+
 public:
 	UCustomRateCaptureComponent2D();
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
-public:
+	
 	// 修改帧数
 	UFUNCTION(BlueprintCallable)
 	void ChangeFramePerSec(int32 FramePerSec);

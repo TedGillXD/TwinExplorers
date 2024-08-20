@@ -21,6 +21,8 @@ ATEGameModeBase::ATEGameModeBase() {
 
 	SpawnItemCountRangeMin = 3;
 	SpawnItemCountRangeMax = 5;
+
+	RoundState = ERoundState::InPreparing;
 }
 
 void ATEGameModeBase::BeginPlay() {
@@ -94,6 +96,8 @@ void ATEGameModeBase::StartRoundPrepare() {
 
 void ATEGameModeBase::StartRound() {
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Round Start!"));
+	RoundState = ERoundState::StartRound;
+	
 	// 更新HUD上方的倒计时
 	for(ATEPlayerController* Controller : ConnectedControllers) {
 		Controller->StartRound(RoundTime, FString(TEXT("距离本回合结束还有")), ItemSpawnInterval, FString(TEXT("距离下一轮道具生成还有")));
@@ -192,6 +196,8 @@ void ATEGameModeBase::EndRound() {
 	GetWorldTimerManager().ClearTimer(TimerHandle_ItemSpawn);
 	GetWorldTimerManager().ClearTimer(TimerHandle_RoundCountDown);
 
+	RoundState = ERoundState::EndRound;
+
 	// 检查场上是否还有人类角色
 	bool bHumanRemaining = false;
 	for (AActor* Actor : TActorRange<AActor>(GetWorld())) {
@@ -263,6 +269,7 @@ void ATEGameModeBase::AssignCharacterTeam(AMainCharacterBase* Character, int32 I
 
 void ATEGameModeBase::IntoPrepareStage() {
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Waiting for rest of the players!"));
+	RoundState = ERoundState::InPreparing;
 	
 	// 更新HUD上方的倒计时
 	for(ATEPlayerController* Controller : ConnectedControllers) {
@@ -338,7 +345,7 @@ void ATEGameModeBase::PickedItem(AActor* SpawnLocationRef, AItemActorBase* Self)
 }
 
 void ATEGameModeBase::CheckGameOver() {
-	if (AreAllPlayersInfected()) {
+	if (RoundState == ERoundState::StartRound && AreAllPlayersInfected()) {
 		// 如果所有玩家都已被感染，结束游戏
 		EndRound();
 	}

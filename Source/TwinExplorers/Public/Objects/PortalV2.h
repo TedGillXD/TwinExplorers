@@ -43,10 +43,6 @@ protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	UBoxComponent* PlayerDetection;			// 用来检测角色的BoxCollision
 
-	// TODO： 下面这部分只是预先定义好，还没有做完
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
-	UBoxComponent* DisableWallCollisionBox;			// 用来检测角色是否已经进入了Portal区域，用来关闭墙体与需要传送的物体之间的碰撞
-
 	EOptimizedLevel LastLevel;
 	
 protected:
@@ -63,6 +59,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category="Portal Props", EditAnywhere, ReplicatedUsing=OnRep_LinkedPortal)
 	APortalV2* LinkedPortal;
+
+	UPROPERTY(BlueprintReadOnly, Category="Portal Props")
+	bool bEnableRecursiveRendering;			// 是否开启递归渲染
 
 	UPROPERTY(BlueprintReadOnly, Category="Portal Props")
 	int32 MaxRecursions;			// 最大递归渲染
@@ -124,6 +123,8 @@ private:
 	// PortalPlane的设置
 	void Init();
 	void SetClipPlane() const;	// 设置裁切平面
+	FVector UpdateLocation(const FVector& Location) const;
+	FRotator UpdateRotation(const FRotator& Rotation) const;
 	void UpdateSceneCapture(const FTransform& CameraTransform) const;
 	void UpdateSceneCaptureRecursive(const FVector& Location, const FRotator& Rotation);
 	FVector GetTargetRotationAxe(const FVector& Axe) const;

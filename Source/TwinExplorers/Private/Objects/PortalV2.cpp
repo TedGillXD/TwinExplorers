@@ -15,6 +15,7 @@
 #include "Kismet/KismetRenderingLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "RenderingThread.h"
+#include "SaveGames/SettingSaveGame.h"
 
 // Sets default values
 APortalV2::APortalV2()
@@ -45,8 +46,9 @@ APortalV2::APortalV2()
 	bIsInit = false;
 	bIsEnabled = true;
 	bCanBeOptimized = false;
+	bEnableRecursiveRendering = false;
 
-	MaxRecursions = 3;
+	MaxRecursions = 1;
 }
 
 // Called when the game starts or when spawned
@@ -93,7 +95,11 @@ void APortalV2::Tick(float DeltaTime) {
 			}));
 			
 			if(bIsEnabled) {
-				UpdateSceneCapture(LocalCharacter->GetCameraComponent()->GetComponentTransform());
+				if(bEnableRecursiveRendering) {
+					UpdateSceneCaptureRecursive(LocalCharacter->GetCameraComponent()->GetComponentLocation(), LocalCharacter->GetCameraComponent()->GetComponentRotation());
+				} else {
+					UpdateSceneCapture(LocalCharacter->GetCameraComponent()->GetComponentTransform());
+				}
 			}
 			
 			FVector2D CurrentViewportSize;
@@ -195,6 +201,18 @@ void APortalV2::Init() {
 		if(!PortalRT) { return; }
 	}
 
+	// USettingSaveGame* SettingSaveGame = Cast<USettingSaveGame>(UGameplayStatics::LoadGameFromSlot("Setting", 0));
+	// if(SettingSaveGame) {
+	// 	bEnableRecursiveRendering = SettingSaveGame->bEnablePortalRecursive;
+	// 	if(bEnableRecursiveRendering) {
+	// 		PortalCamera->CompositeMode = SCCM_Composite;
+	// 	} else {
+	// 		PortalCamera->CompositeMode = SCCM_Overwrite;
+	// 	}
+	// 	
+	// }
+	bEnableRecursiveRendering = false;
+
 	PortalMatInstance->SetTextureParameterValue(FName("Texture"), PortalRT);
 	PortalMatInstance->SetVectorParameterValue(FName("RingColor"), RingColor);
 	
@@ -237,31 +255,58 @@ void APortalV2::SetClipPlane() const {
 	PortalCamera->ClipPlaneNormal = ForwardDirection->GetForwardVector();
 }
 
-void APortalV2::UpdateSceneCapture(const FTransform& CameraTransform) const {
-	// 计算目标位置
+FVector APortalV2::UpdateLocation(const FVector& Location) const {
 	FTransform Current = GetActorTransform();
 	FTransform temp;
 	temp.SetLocation(Current.GetLocation());
 	temp.SetRotation(Current.GetRotation());
 	temp.SetScale3D(FVector{ Current.GetScale3D().X * -1.f, Current.GetScale3D().Y * -1.f, Current.GetScale3D().Z });
-	FVector InverseLocation = UKismetMathLibrary::InverseTransformLocation(temp, CameraTransform.GetLocation());
-	FVector FinalLocation = UKismetMathLibrary::TransformLocation(LinkedPortal->GetActorTransform(), InverseLocation);
+	FVector InverseLocation = UKismetMathLibrary::InverseTransformLocation(temp, Location);
+	return UKismetMathLibrary::TransformLocation(LinkedPortal->GetActorTransform(), InverseLocation);
+}
+
+FRotator APortalV2::UpdateRotation(const FRotator& Rotation) const {
+	FVector X, Y, Z;
+	UKismetMathLibrary::BreakRotIntoAxes(Rotation, X, Y, Z);
+	return UKismetMathLibrary::MakeRotationFromAxes(GetTargetRotationAxe(X), GetTargetRotationAxe(Y), GetTargetRotationAxe(Z));
+}
+
+void APortalV2::UpdateSceneCapture(const FTransform& CameraTransform) const {
+	// 计算目标位置
+	FVector FinalLocation = UpdateLocation(CameraTransform.GetLocation());
 
 	// 计算目标旋转
-	FRotator CharacterRotation = CameraTransform.GetRotation().Rotator();
-	FVector X, Y, Z;
-	UKismetMathLibrary::BreakRotIntoAxes(CharacterRotation, X, Y, Z);
-	FRotator FinalRotation = UKismetMathLibrary::MakeRotationFromAxes(GetTargetRotationAxe(X), GetTargetRotationAxe(Y), GetTargetRotationAxe(Z));
+	FRotator FinalRotation = UpdateRotation(CameraTransform.GetRotation().Rotator());
 	
 	LinkedPortal->PortalCamera->SetWorldLocationAndRotation(FinalLocation, FinalRotation);
 }
 
 void APortalV2::UpdateSceneCaptureRecursive(const FVector& Location, const FRotator& Rotation) {
-	// if(CurrentRecursion == 0) {
-	// 	LocalCharacter->GetCameraComponent()->GetComponentLocation();
-	// } else {
-	// 	
-	// }
+	FVector TempLocation;
+	FRotator TempRotation;
+	if(CurrentRecursion == 0) {
+		TempLocation = UpdateLocation(LocalCharacter->GetCameraComponent()->GetComponentLocation());
+		TempRotation = UpdateRotation(LocalCharacter->GetCameraComponent()->GetComponentRotation());
+		CurrentRecursion++;
+		UpdateSceneCaptureRecursive(TempLocation, TempRotation);
+		LinkedPortal->PortalCamera->SetWorldLocationAndRotation(TempLocation, TempRotation);
+		LinkedPortal->PortalCamera->CaptureScene();
+		CurrentRecursion = 0;
+	} else {
+		if(CurrentRecursion < MaxRecursions) {
+			TempLocation = UpdateLocation(Location);
+			TempRotation = UpdateRotation(Rotation);
+			CurrentRecursion++;
+			UpdateSceneCaptureRecursive(TempLocation, TempRotation);
+			LinkedPortal->PortalCamera->SetWorldLocationAndRotation(TempLocation, TempRotation);
+			LinkedPortal->PortalCamera->CaptureScene();
+		} else {
+			LinkedPortal->PortalCamera->SetWorldLocationAndRotation(TempLocation, TempRotation);
+			PortalPlane->SetVisibility(false);
+			LinkedPortal->PortalCamera->CaptureScene();
+			PortalPlane->SetVisibility(true);
+		}
+	}
 }
 
 FVector APortalV2::GetTargetRotationAxe(const FVector& Axe) const {
@@ -382,7 +427,8 @@ void APortalV2::SetCurrentOptimizationLevel(EOptimizedLevel OptimizedLevel) {
 		break;
 	case Level3:  // 不渲染
 	default:
-		LinkedPortal->DisableSceneCapture();
+		// LinkedPortal->DisableSceneCapture();
+		LinkedPortal->SetToLevel2Resolution();
 		break;
 	}
 
@@ -393,21 +439,21 @@ void APortalV2::SetToLevel0Resolution() const {
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
 	ResizeTextureToMatchViewport(Size);
-	LinkedPortal->PortalCamera->ChangeFramePerSec(40);
+	LinkedPortal->PortalCamera->ChangeFramePerSec(50);
 }
 
 void APortalV2::SetToLevel1Resolution() const {
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
 	ResizeTextureToMatchViewport(Size / 2);
-	LinkedPortal->PortalCamera->ChangeFramePerSec(30);
+	LinkedPortal->PortalCamera->ChangeFramePerSec(40);
 }
 
 void APortalV2::SetToLevel2Resolution() const {
 	FVector2D Size;
 	GEngine->GameViewport->GetViewportSize(Size);
 	ResizeTextureToMatchViewport(Size / 2);
-	LinkedPortal->PortalCamera->ChangeFramePerSec(25);
+	LinkedPortal->PortalCamera->ChangeFramePerSec(30);
 }
 
 void APortalV2::ResizeTextureToMatchViewport(const FVector2D& DesiredSize) const {
@@ -418,7 +464,7 @@ void APortalV2::ResizeTextureToMatchViewport(const FVector2D& DesiredSize) const
 	
 	if (DesiredSize.X != CurrentWidth || DesiredSize.Y != CurrentHeight) {
 		LinkedPortal->PortalRT->ResizeTarget(DesiredSize.X, DesiredSize.Y);
-		LinkedPortal->PortalCamera->CaptureSceneDeferred();
+		LinkedPortal->PortalCamera->CaptureScene();
 		FlushRenderingCommands();    // 在每一次Resize之后Flush一次，防止多次Resize崩溃
 	}
 }

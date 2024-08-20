@@ -9,6 +9,14 @@
 class AItemActorBase;
 class AMainCharacterBase;
 class ATEPlayerController;
+
+UENUM()
+enum class ERoundState {
+	InPreparing,
+	StartRound,
+	EndRound
+};
+
 /**
  * 关卡中的GameMode
  */
@@ -73,6 +81,8 @@ protected:
 	float CurrentStartWaitTimeLeft;		// 当前准备阶段剩余时间
 	float EventTimeLeft;			// 道具生成倒数剩余时间
 
+	ERoundState RoundState = ERoundState::InPreparing;
+	
 	virtual void BeginPlay() override;
 	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;

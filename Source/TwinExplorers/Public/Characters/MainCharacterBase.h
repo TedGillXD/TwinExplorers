@@ -165,11 +165,11 @@ public:
 	UFUNCTION()
 	void DeactivateSkill();
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(Server, Reliable, BlueprintCallable)
 	void AttackOnServer();
 	void Attack();
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Server, Reliable)
 	void AttackDetection();
 
 	// 在服务器中用来通知其他所有的客户端中对应的角色播放攻击动画
